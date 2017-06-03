@@ -27,5 +27,9 @@ typedef struct {
     double **f;                 //for each level, the rhs at the global nodes
 } multiStruc;
 
+void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *U1, double *UP);
+void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi);
+void free_multi(multiStruc *multi);
+
 
 #endif /* multigrid_h */

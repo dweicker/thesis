@@ -17,6 +17,7 @@
 #include "p4estFunc.h"
 #include "sem.h"
 #include "conjGrad.h"
+#include "multigrid.h"
 
 
 
@@ -166,6 +167,19 @@ int main(int argc, const char * argv[]) {
     
     p4est_tree_t *tree = p4est_tree_array_index(p4est->trees,p4est->first_local_tree);
     printf("The maxlevel is : %d \n",tree->maxlevel);
+    
+    
+    /** Test for the Multigrid **/
+    multiStruc *multi = malloc(sizeof(multiStruc));
+    create_data_multigrid(p4est,lnodes,multi);
+    
+    
+    free_multi(multi);
+    free(multi);
+    
+    
+    
+    
     
     //the end
     p4est_vtk_write_file(p4est,NULL,filename);
