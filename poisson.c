@@ -1,5 +1,5 @@
 //
-//  unit.c
+//  poisson.c
 //  
 //
 //  Created by David Weicker on 13/02/17.
@@ -37,6 +37,7 @@ int main(int argc, const char * argv[]) {
     p4est = p4est_new(mpicomm,conn,0,NULL,NULL);
     
     p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_refine(p4est,0,refine_top_right,NULL);
     //p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
@@ -163,6 +164,8 @@ int main(int argc, const char * argv[]) {
     double *sol = calloc(nTot,sizeof(double));
     conj_grad(p4est, lnodes, xsi, weights, tol, sol, x, y, u_exact);
     
+    p4est_tree_t *tree = p4est_tree_array_index(p4est->trees,p4est->first_local_tree);
+    printf("The maxlevel is : %d \n",tree->maxlevel);
     
     //the end
     p4est_vtk_write_file(p4est,NULL,filename);

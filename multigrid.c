@@ -72,7 +72,7 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
             for(j=(hang_loc[2]>2);j<N-(hang_loc[3]>0);j++){
                 for(i=(hang_loc[0]>0);i<N-(hang_loc[1]>0);i++){
                     lni = lnodesP->element_nodes[vnodes*kk+N*j+i];
-                    if(visited[lni]){
+                    if(!visited[lni]){
                         UP[lni] = u_loc[0]*(1-gll_points[i])*(1-gll_points[j])/4 + u_loc[1]*(1+gll_points[i])*(1-gll_points[j])/4 + u_loc[2]*(1-gll_points[i])*(1+gll_points[j])/4 + u_loc[3]*(1+gll_points[i])*(1+gll_points[j])/4;
                         visited[lni]++;
                     }
@@ -85,3 +85,94 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
     
     free(visited);
 }
+
+
+
+/** Creates and allocates the data structures that allows for the multigrid method
+ *
+ * \param[in] p4est             The forest is not changed
+ * \param[in] lnodes            The node numbering is not changed. It is the node numbering of the p=1 grid!
+ * \param[in] multi             The multi grid structure as defined in multigrid.h
+ */
+void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi){
+    /** This is a three steps process
+     * 1. Base info : maxlevel + intialization structure (loop on the trees)
+     * 2. We go through the finest grid and fill the info
+     * 3. We decrease the level recursively by using info from above
+     */
+    int i,j;
+    p4est_topidx_t tt;
+    p4est_locidx_t kk,qu,Q,lni;
+    p4est_tree_t *tree;
+    p4est_quadrant_t *quad;
+    sc_array_t *tquadrants;
+    int maxlevel = 0;
+    int nElem = 0;
+    int *quads,*up,*hanging,*hanging_info;
+    
+    /* Step 1 : base info */
+    for(tt = p4est->first_local_tree;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        maxlevel = (maxlevel >= tree->maxlevel)? maxlevel : tree->maxlevel;
+        nElem += Q;
+    }
+    multi->maxlevel = maxlevel;
+    multi->nQuadrants = calloc(maxlevel+1,sizeof(int));
+    multi->quads = malloc((maxlevel+1)*sizeof(int*));
+    multi->up = malloc((maxlevel+1)*sizeof(int*));
+    multi->hanging = malloc((maxlevel+1)*sizeof(int*));
+    multi->hanging_info = malloc((maxlevel+1)*sizeof(int*));
+    multi->u = malloc((maxlevel+1)*sizeof(double*));
+    multi->f = malloc((maxlevel+1)*sizeof(double*));
+    
+    /* Step 2 : finest grid */
+    int *nLevel = calloc(maxlevel+1,sizeof(int));
+    int *quad_level = calloc(nElem,sizeof(int));
+    multi->nQuadrants[maxlevel] = nElem;
+    multi->quads[maxlevel] = malloc(4*nElem*sizeof(int));
+    multi->up[maxlevel] = malloc(4*nElem*sizeof(int));
+    multi->hanging[maxlevel] = calloc(nElem,sizeof(int));
+    multi->hanging_info[maxlevel] = malloc(4*nElem*sizeof(int));
+    quads = multi->quads[maxlevel];
+    up = multi->up[maxlevel];
+    hanging = multi->hanging[maxlevel];
+    hanging_info = multi->hanging_info[maxlevel];
+    //loop trees
+    for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        //loop quadtrees
+        for(qu = 0; qu<Q; qu++,kk++){
+            quads[4*kk] = lnodes->element_nodes[4*kk];
+            quads[4*kk+1] = lnodes->element_nodes[4*kk+1];
+            quads[4*kk+2] = lnodes->element_nodes[4*kk+2];
+            quads[4*kk+3] = lnodes->element_nodes[4*kk+3];
+            up[4*kk] = -1;
+            up[4*kk+1] = -1;
+            up[4*kk+2] = -1;
+            up[4*kk+3] = -1;
+            if(lnodes->face_code[kk]){
+                hanging[kk] = 1;
+                quad_decode(lnodes->face_code[kk],&hanging_info[4*kk]);
+            }
+            else{
+                hanging_info[4*kk] = -1;
+                hanging_info[4*kk+1] = -1;
+                hanging_info[4*kk+2] = -1;
+                hanging_info[4*kk+3] = -1;
+            }
+        }
+    }
+    
+    
+    free(nLevel);
+    free(quad_level);
+}
+
+
+
+
+
