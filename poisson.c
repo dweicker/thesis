@@ -33,14 +33,14 @@ int main(int argc, const char * argv[]) {
     const char *scalar_name = "ones";
     int i,j;
     
-    conn = p4est_connectivity_new_unitsquare();
-    //conn = p4est_connectivity_read_inp(inputfile);
+    //conn = p4est_connectivity_new_unitsquare();
+    conn = p4est_connectivity_read_inp(inputfile);
     p4est = p4est_new(mpicomm,conn,0,NULL,NULL);
     
     p4est_refine(p4est,0,refine_true,NULL);
     p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_refine(p4est,0,refine_top_right,NULL);
-    //p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
+    p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
     /* Create the ghost layer to learn about parallel neighbors. */
     ghost = p4est_ghost_new (p4est, P4EST_CONNECT_FULL);
@@ -171,10 +171,18 @@ int main(int argc, const char * argv[]) {
     
     /** Test for the Multigrid **/
     multiStruc *multi = malloc(sizeof(multiStruc));
-    create_data_multigrid(p4est,lnodes,multi);
+    multi_create_data(p4est,lnodes,multi);
     
-    
-    free_multi(multi);
+    int nLev = multi->maxlevel;
+    printf("MULTIGRID quad \n");
+    for(i=nLev;i>=0;i--){
+        printf("%d : ",multi->nNodes[i]);
+        for(j=0;j<(multi->nNodes[i]);j++){
+            printf("%d ",multi->map_glob[i][j]);
+        }
+        printf("\n");
+    }
+    multi_free(multi);
     free(multi);
     
     

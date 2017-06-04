@@ -9,6 +9,15 @@
 #include "multigrid.h"
 
 
+/** Little compare function for integers
+ *
+ */
+int compare_int(const void *a,const void *b){
+    int *x = (int *) a;
+    int *y = (int *) b;
+    return *x - *y;
+}
+
 /** Interpolate the solution for p=1 onto the same mesh for higher p
  *
  * \param [in] p4est            The forest is not changed - same for both nodes layers
@@ -94,7 +103,7 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
  * \param[in] lnodes            The node numbering is not changed. It is the node numbering of the p=1 grid!
  * \param[in] multi             The multi grid structure as defined in multigrid.h
  */
-void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi){
+void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi){
     /** This is a three steps process
      * 1. Base info : maxlevel + intialization structure (loop on the trees)
      * 2. We go through the finest grid and fill the info
@@ -108,7 +117,7 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
     sc_array_t *tquadrants;
     int maxlevel = 0;
     int nElem = 0;
-    int *quads,*up,*hanging,*hanging_info;
+    int *quads,*up,*hanging,*hanging_info,*map_glob;
     int nNodes = lnodes->num_local_nodes;
     
     /* Step 1 : base info */
@@ -121,10 +130,12 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
     }
     multi->maxlevel = maxlevel;
     multi->nQuadrants = calloc(maxlevel+1,sizeof(int));
+    multi->nNodes = calloc(maxlevel+1,sizeof(int));
     multi->quads = malloc((maxlevel+1)*sizeof(int*));
     multi->up = malloc((maxlevel+1)*sizeof(int*));
     multi->hanging = malloc((maxlevel+1)*sizeof(int*));
     multi->hanging_info = malloc((maxlevel+1)*sizeof(int*));
+    multi->map_glob = malloc((maxlevel+1)*sizeof(int*));
     multi->u = malloc((maxlevel+1)*sizeof(double*));
     multi->f = malloc((maxlevel+1)*sizeof(double*));
     
@@ -134,10 +145,12 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
     int *quad_level = calloc(nElem,sizeof(int));
     int hgn[4];
     multi->nQuadrants[maxlevel] = nElem;
+    multi->nNodes[maxlevel] = nNodes;
     multi->quads[maxlevel] = malloc(4*nElem*sizeof(int));
     multi->up[maxlevel] = malloc(4*nElem*sizeof(int));
     multi->hanging[maxlevel] = calloc(nElem,sizeof(int));
     multi->hanging_info[maxlevel] = malloc(4*nElem*sizeof(int));
+    multi->map_glob[maxlevel] = malloc(nNodes*sizeof(int));
     multi->u[maxlevel] = calloc(nNodes,sizeof(double));
     multi->f[maxlevel] = calloc(nNodes,sizeof(double));
     quads = multi->quads[maxlevel];
@@ -178,27 +191,27 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
             }
         }
     }
-    printf("porscops\n");
-    for(i=0;i<4*nElem;i++){
-        printf("%d ",quads[i]);
+    //we fill the mapping
+    for(i=0;i<nNodes;i++){
+        multi->map_glob[maxlevel][i] = i;
     }
-    printf("\nelem = %d\njjjj\n",nElem);
     
     /* Step 3 : we go from one level to the one below */
     for(int lev = maxlevel-1 ; lev >= 0 ; lev--){
+        nElem -= 3*nLevel[lev+1]/4;
+        multi->nQuadrants[lev] = nElem;
+        nLevel[lev] += nLevel[lev+1]/4;
+        multi->quads[lev] = calloc(4*nElem,sizeof(int));
+        multi->up[lev] = calloc(4*nElem,sizeof(int));
+        multi->hanging[lev] = calloc(nElem,sizeof(int));
+        multi->hanging_info[lev] = calloc(4*nElem,sizeof(int));
+        multi->map_glob[lev] = calloc(4*nElem,sizeof(int));
         quads = multi->quads[lev];
         up = multi->up[lev];
         hanging = multi->hanging[lev];
         hanging_info = multi->hanging_info[lev];
-        nElem -= 3*nLevel[lev+1]/4;
-        multi->nQuadrants[lev] = nElem;
-        nLevel[lev] += nLevel[lev+1]/4;
-        quads = calloc(4*nElem,sizeof(int));
-        up = calloc(4*nElem,sizeof(int));
-        hanging = calloc(nElem,sizeof(int));
-        hanging_info = calloc(4*nElem,sizeof(int));
+        map_glob = multi->map_glob[lev];
         for(kk=0,ll=0 ; kk<nElem ; kk++,ll++){
-            printf("%d and %d and %d\n",kk,ll,lev);
             if(quad_level[ll] == lev+1){
                 quads[4*kk] = multi->quads[lev+1][4*ll];
                 quads[4*kk+1] = multi->quads[lev+1][4*ll+5];
@@ -219,9 +232,6 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
                 ll += 3;
             }
             else{
-                printf("%d and %d\n",ll,nElem);
-                printf("it is : %d\n",(multi->quads[lev+1])[4*ll]);
-                printf("gfes\n");
                 quads[4*kk] = multi->quads[lev+1][4*ll];
                 quads[4*kk+1] = multi->quads[lev+1][4*ll+1];
                 quads[4*kk+2] = multi->quads[lev+1][4*ll+2];
@@ -237,16 +247,23 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
                 hanging_info[4*kk+3] = multi->hanging_info[lev+1][4*ll+3];
                 quad_level[kk] = quad_level[ll];
             }
+            map_glob[4*kk] = quads[4*kk];
+            map_glob[4*kk+1] = quads[4*kk+1];
+            map_glob[4*kk+2] = quads[4*kk+2];
+            map_glob[4*kk+3] = quads[4*kk+3];
         }
         multi->u[lev] = calloc(nNodes,sizeof(double));
         multi->f[lev] = calloc(nNodes,sizeof(double));
-        
-        printf("porscops\n");
-        for(i=0;i<4*nElem;i++){
-            printf("%d ",quads[i]);
+        //we take care of the map_glob
+        qsort(map_glob,4*nElem,sizeof(int),compare_int);
+        j=0;
+        for(i=1;i<4*nElem;i++){
+            if(map_glob[i]>map_glob[j]){
+                map_glob[j+1] = map_glob[i];
+                j++;
+            }
         }
-        printf("\nelem = %d\njjjj\n",nElem);
-        
+        multi->nNodes[lev] = j+1;
         
     }
     free(nLevel);
@@ -258,16 +275,39 @@ void create_data_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *m
  *
  * \param[in] multi         The multigrid structure
  */
-void free_multi(multiStruc *multi){
+void multi_free(multiStruc *multi){
     for(int i=0;i<=multi->maxlevel;i++){
         free(multi->quads[i]);
         free(multi->up[i]);
         free(multi->hanging[i]);
         free(multi->hanging_info[i]);
+        free(multi->map_glob[i]);
         free(multi->u[i]);
         free(multi->f[i]);
     }
+    free(multi->quads);
+    free(multi->up);
+    free(multi->hanging);
+    free(multi->hanging_info);
+    free(multi->map_glob);
+    free(multi->u);
+    free(multi->f);
     free(multi->nQuadrants);
+    free(multi->nNodes);
+}
+
+
+/** Does one smoothing at a given level using the weighted Jacobi relaxation
+ *
+ * \param [in,out] multi                The multigrid structure
+ * \param [in] level                    The level at which we perform the smoothing
+ * \param [in] x,y                      The coordinates for every global point
+ * \param [in] omega                    Parameter in the weighted Jacobi scheme
+ * \param [in] D                        Vector for the diagonal matrix D
+ * \param [in] uStar                    Vector for the jacobi method
+ */
+void multi_smooth(multiStruc *multi, int level, double *x, double *y, double omega, double *D, double *uStar){
+    int nElem = multi->nQuadrants[level];
 }
 
 
