@@ -101,9 +101,10 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
  *
  * \param[in] p4est             The forest is not changed
  * \param[in] lnodes            The node numbering is not changed. It is the node numbering of the p=1 grid!
+ * \param[in] x,y               The coordinates of the global nodes (for p=1!)
  * \param[in] multi             The multi grid structure as defined in multigrid.h
  */
-void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi){
+void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double *y, multiStruc *multi){
     /** This is a three steps process
      * 1. Base info : maxlevel + intialization structure (loop on the trees)
      * 2. We go through the finest grid and fill the info
@@ -118,6 +119,10 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi
     int maxlevel = 0;
     int nElem = 0;
     int *quads,*up,*hanging,*hanging_info,*map_glob;
+    double *Wee,*Wen,*Wnn;
+    double X[4];
+    double Y[4];
+    double factors[3];
     int nNodes = lnodes->num_local_nodes;
     
     /* Step 1 : base info */
@@ -138,6 +143,9 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi
     multi->map_glob = malloc((maxlevel+1)*sizeof(int*));
     multi->u = malloc((maxlevel+1)*sizeof(double*));
     multi->f = malloc((maxlevel+1)*sizeof(double*));
+    multi->Wee = malloc((maxlevel+1)*sizeof(double*));
+    multi->Wen = malloc((maxlevel+1)*sizeof(double*));
+    multi->Wnn = malloc((maxlevel+1)*sizeof(double*));
     
     
     /* Step 2 : finest grid */
@@ -153,10 +161,17 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi
     multi->map_glob[maxlevel] = malloc(nNodes*sizeof(int));
     multi->u[maxlevel] = calloc(nNodes,sizeof(double));
     multi->f[maxlevel] = calloc(nNodes,sizeof(double));
+    multi->Wee[maxlevel] = malloc(4*nElem*sizeof(double));
+    multi->Wen[maxlevel] = malloc(4*nElem*sizeof(double));
+    multi->Wnn[maxlevel] = malloc(4*nElem*sizeof(double));
+    
     quads = multi->quads[maxlevel];
     up = multi->up[maxlevel];
     hanging = multi->hanging[maxlevel];
     hanging_info = multi->hanging_info[maxlevel];
+    Wee = multi->Wee[maxlevel];
+    Wen = multi->Wen[maxlevel];
+    Wnn = multi->Wnn[maxlevel];
     //loop trees
     for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
         tree = p4est_tree_array_index(p4est->trees,tt);
@@ -189,6 +204,33 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi
                 hanging_info[4*kk+2] = -1;
                 hanging_info[4*kk+3] = -1;
             }
+            //geometric factors
+            if(hanging[kk]){
+                for(i=0;i<4;i++){
+                    if(hanging_info[4*kk+i]>=0){
+                        X[i] = 0.5*(x[quads[4*kk+i]]+x[quads[4*kk+hanging_info[4*kk+i]]]);
+                        Y[i] = 0.5*(y[quads[4*kk+i]]+y[quads[4*kk+hanging_info[4*kk+i]]]);
+                    }
+                    else{
+                        X[i] = x[quads[4*kk+i]];
+                        Y[i] = y[quads[4*kk+i]];
+                    }
+                }
+            }
+            else{
+                for(i=0;i<4;i++){
+                    X[i] = x[quads[4*kk+i]];
+                    Y[i] = y[quads[4*kk+i]];
+                }
+            }
+            geom_factor(X,Y,-1,-1,factors);
+            Wee[4*kk] = factors[0]; Wen[4*kk] = factors[1]; Wnn[4*kk] = factors[2];
+            geom_factor(X,Y,1,-1,factors);
+            Wee[4*kk+1] = factors[0]; Wen[4*kk+1] = factors[1]; Wnn[4*kk+1] = factors[2];
+            geom_factor(X,Y,-1,1,factors);
+            Wee[4*kk+2] = factors[0]; Wen[4*kk+2] = factors[1]; Wnn[4*kk+2] = factors[2];
+            geom_factor(X,Y,1,1,factors);
+            Wee[4*kk+3] = factors[0]; Wen[4*kk+3] = factors[1]; Wnn[4*kk+3] = factors[2];
         }
     }
     //we fill the mapping
@@ -206,11 +248,17 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi
         multi->hanging[lev] = calloc(nElem,sizeof(int));
         multi->hanging_info[lev] = calloc(4*nElem,sizeof(int));
         multi->map_glob[lev] = calloc(4*nElem,sizeof(int));
+        multi->Wee[lev] = malloc(4*nElem*sizeof(double));
+        multi->Wen[lev] = malloc(4*nElem*sizeof(double));
+        multi->Wnn[lev] = malloc(4*nElem*sizeof(double));
         quads = multi->quads[lev];
         up = multi->up[lev];
         hanging = multi->hanging[lev];
         hanging_info = multi->hanging_info[lev];
         map_glob = multi->map_glob[lev];
+        Wee = multi->Wee[lev];
+        Wen = multi->Wen[lev];
+        Wnn = multi->Wnn[lev];
         for(kk=0,ll=0 ; kk<nElem ; kk++,ll++){
             if(quad_level[ll] == lev+1){
                 quads[4*kk] = multi->quads[lev+1][4*ll];
@@ -251,6 +299,33 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, multiStruc *multi
             map_glob[4*kk+1] = quads[4*kk+1];
             map_glob[4*kk+2] = quads[4*kk+2];
             map_glob[4*kk+3] = quads[4*kk+3];
+            //geometric factors
+            if(hanging[kk]){
+                for(i=0;i<4;i++){
+                    if(hanging_info[4*kk+i]>=0){
+                        X[i] = 0.5*(x[quads[4*kk+i]]+x[quads[4*kk+hanging_info[4*kk+i]]]);
+                        Y[i] = 0.5*(y[quads[4*kk+i]]+y[quads[4*kk+hanging_info[4*kk+i]]]);
+                    }
+                    else{
+                        X[i] = x[quads[4*kk+i]];
+                        Y[i] = y[quads[4*kk+i]];
+                    }
+                }
+            }
+            else{
+                for(i=0;i<4;i++){
+                    X[i] = x[quads[4*kk+i]];
+                    Y[i] = y[quads[4*kk+i]];
+                }
+            }
+            geom_factor(X,Y,-1,-1,factors);
+            Wee[4*kk] = factors[0]; Wen[4*kk] = factors[1]; Wnn[4*kk] = factors[2];
+            geom_factor(X,Y,1,-1,factors);
+            Wee[4*kk+1] = factors[0]; Wen[4*kk+1] = factors[1]; Wnn[4*kk+1] = factors[2];
+            geom_factor(X,Y,-1,1,factors);
+            Wee[4*kk+2] = factors[0]; Wen[4*kk+2] = factors[1]; Wnn[4*kk+2] = factors[2];
+            geom_factor(X,Y,1,1,factors);
+            Wee[4*kk+3] = factors[0]; Wen[4*kk+3] = factors[1]; Wnn[4*kk+3] = factors[2];
         }
         multi->u[lev] = calloc(nNodes,sizeof(double));
         multi->f[lev] = calloc(nNodes,sizeof(double));
@@ -284,6 +359,9 @@ void multi_free(multiStruc *multi){
         free(multi->map_glob[i]);
         free(multi->u[i]);
         free(multi->f[i]);
+        free(multi->Wee[i]);
+        free(multi->Wen[i]);
+        free(multi->Wnn[i]);
     }
     free(multi->quads);
     free(multi->up);
@@ -292,6 +370,9 @@ void multi_free(multiStruc *multi){
     free(multi->map_glob);
     free(multi->u);
     free(multi->f);
+    free(multi->Wee);
+    free(multi->Wen);
+    free(multi->Wnn);
     free(multi->nQuadrants);
     free(multi->nNodes);
 }
@@ -302,12 +383,13 @@ void multi_free(multiStruc *multi){
  * \param [in,out] multi                The multigrid structure
  * \param [in] level                    The level at which we perform the smoothing
  * \param [in] x,y                      The coordinates for every global point
+ * \param [in] boundary                 Boolean flags to check for the boundaries
  * \param [in] omega                    Parameter in the weighted Jacobi scheme
  * \param [in] iter                     The number of iterations we do
  * \param [in] D                        Vector for the diagonal matrix D
  * \param [in] uStar                    Vector for the jacobi method
  */
-void multi_smooth(multiStruc *multi, int level, double *x, double *y, double omega, int iter, double *D, double *uStar){
+void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *boundary, double omega, int iter, double *D, double *uStar){
     int nElem = multi->nQuadrants[level];
     int nNodes = multi->nNodes[level];
     double *u = multi->u[level];
@@ -316,20 +398,18 @@ void multi_smooth(multiStruc *multi, int level, double *x, double *y, double ome
     int *hanging = multi->hanging[level];
     int *hanging_info = multi->hanging_info[level];
     int *map_glob = multi->map_glob[level];
-    int it,kk,i,j;
+    int it,kk,i,j,m;
     
     double U[4];
-    double Wee[4];
-    double Wen[4];
-    double Wnn[4];
+    double diag[4];
+    double *Wee;
+    double *Wen;
+    double *Wnn;
     double De[4];
     double Dn[4];
     double Fe[4];
     double Fn[4];
     double H[4] = {-0.5,-0.5,0.5,0.5};
-    double X[4];
-    double Y[4];
-    double factors[3];
     
     //we do a given number of iterations
     for(it=0;it<iter;it++){
@@ -341,27 +421,18 @@ void multi_smooth(multiStruc *multi, int level, double *x, double *y, double ome
         //we iterate on the quadrants
         for(kk=0;kk<nElem;kk++){
             //geometric factors
-            for(i=0;i<4;i++){
-                X[i] = x[quads[4*kk+i]];
-                Y[i] = y[quads[4*kk+i]];
-            }
-            geom_factor(X,Y,-1,-1,factors);
-            Wee[0] = factors[0]; Wen[0] = factors[1]; Wnn[0] = factors[2];
-            geom_factor(X,Y,1,-1,factors);
-            Wee[1] = factors[0]; Wen[1] = factors[1]; Wnn[1] = factors[2];
-            geom_factor(X,Y,-1,1,factors);
-            Wee[2] = factors[0]; Wen[2] = factors[1]; Wnn[2] = factors[2];
-            geom_factor(X,Y,1,1,factors);
-            Wee[3] = factors[0]; Wen[3] = factors[1]; Wnn[3] = factors[2];
+            Wee = &(multi->Wee[level][4*kk]);
+            Wen = &(multi->Wen[level][4*kk]);
+            Wnn = &(multi->Wnn[level][4*kk]);
             //compute U (interpolate if hanging)
             if(hanging[kk]){
                 for(j=0;j<2;j++){
                     for(i=0;i<2;i++){
                         if(hanging_info[4*kk+j*2+i]>=0){
-                            U[j*2+i] = 0.5*(u[quads[4*kk+j*2+i]]+u[quads[4*kk+hanging_info[4*kk+j*2+i]]]);
+                            U[i*2+j] = 0.5*(u[quads[4*kk+j*2+i]]+u[quads[4*kk+hanging_info[4*kk+j*2+i]]]);
                         }
                         else{
-                            U[j*2+i] = u[quads[4*kk+j*2+i]];
+                            U[i*2+j] = u[quads[4*kk+j*2+i]];
                         }
                     }
                 }
@@ -369,29 +440,179 @@ void multi_smooth(multiStruc *multi, int level, double *x, double *y, double ome
             else{
                 for(j=0;j<2;j++){
                     for(i=0;i<2;i++){
-                        U[j*2+i] = u[quads[4*kk+j+i]];
+                        U[i*2+j] = u[quads[4*kk+j*2+i]];
                     }
                 }
             }
             //compute De and Dn
-            for(j=0;j<2;j++){
-                for(i=0;i<2;i++){
+            for(i=0;i<2;i++){
+                for(j=0;j<2;j++){
+                    De[i*2+j] = 0.0;
+                    Dn[i*2+j] = 0.0;
                     for(m=0;m<2;m++){
-                        De = 
+                        De[i*2+j] += H[m*2+i]*U[m*2+j];
+                        Dn[i*2+j] += H[m*2+j]*U[i*2+m];
                     }
                 }
             }
-            
             //compute Fe and Fn
-            
+            for(i=0;i<2;i++){
+                for(j=0;j<2;j++){
+                    Fe[i*2+j] = Wee[j*2+i]*De[i*2+j] + Wen[j*2+i]*Dn[i*2+j];
+                    Fn[i*2+j] = Wen[j*2+i]*De[i*2+j] + Wnn[j*2+i]*Dn[i*2+j];
+                }
+            }
+            //compute the diagonal contribution
+            diag[0] = 0.25*(Wee[0]+2*Wen[0]+Wnn[0]+Wee[1]+Wnn[2]);
+            diag[1] = 0.25*(Wee[0]+Wee[1]-2*Wen[1]+Wnn[1]+Wnn[3]);
+            diag[2] = 0.25*(Wnn[0]+Wee[2]-2*Wen[2]+Wnn[2]+Wee[3]);
+            diag[3] = 0.25*(Wnn[1]+Wee[2]+Wee[3]+2*Wen[3]+Wnn[3]);
+            //compute uStar and D (do not forget to look at the diagonal contribution) for the non hanging nodes
+            if(hanging[kk]){
+                for(j=0;j<2;j++){
+                    for(i=0;i<2;i++){
+                        if(hanging_info[4*kk+j*2+i]<0){
+                            for(m=0;m<2;m++){
+                                uStar[quads[4*kk+j*2+i]] -= (H[i*2+m]*Fe[m*2+j] + Fn[i*2+m]*H[j*2+m]);
+                            }
+                            uStar[quads[4*kk+j*2+i]] += diag[j*2+i]*U[i*2+j];
+                            D[quads[4*kk+j*2+i]] += diag[j*2+i];
+                        }
+                    }
+                }
+            }
+            else{
+                for(j=0;j<2;j++){
+                    for(i=0;i<2;i++){
+                        for(m=0;m<2;m++){
+                            uStar[quads[4*kk+j*2+i]] -= (H[i*2+m]*Fe[m*2+j] + Fn[i*2+m]*H[j*2+m]);
+                        }
+                        uStar[quads[4*kk+j*2+i]] += diag[j*2+i]*U[i*2+j];
+                        D[quads[4*kk+j*2+i]] += diag[j*2+i];
+                    }
+                }
+            }
         }
-        //the update (check if not hanging! and not boundary!)
+        //the update (check if not boundary!)
         for(i=0;i<nNodes;i++){
-            u[map_glob[i]] = omega*uStar[map_glob[i]]/D[map_glob[i]] + (1-omega)*u[map_glob[i]];
+            if(boundary[map_glob[i]]){
+                u[map_glob[i]] = omega*f[map_glob[i]] + (1-omega)*u[map_glob[i]];
+            }
+            else{
+                u[map_glob[i]] = omega*uStar[map_glob[i]]/D[map_glob[i]] + (1-omega)*u[map_glob[i]];
+            }
         }
     }
 }
 
+
+/** Computes and restricts the residual from the above level to the lower level (using simple injection)
+ *
+ * \param[in] multi             The multigrid structure
+ * \param[in] level             The above level (the level where we compute the residual)
+ * \param[in] boundary          Boolean flags for boundary conditions on the global nodes
+ */
+void multi_restriction(multiStruc *multi, int level, int *boundary){
+    /*This is a two-step problem
+     * 1. Compute the residual on the fine grid
+     * 2. Restrict it on the coarse grid
+     */
+    int nNodes_glob = multi->nNodes[multi->maxlevel];
+    int nNodes_up = multi->nNodes[level];
+    int nNodes_down = multi->nNodes[level-1];
+    int *map_up = multi->map_glob[level];
+    int *map_down = multi->map_glob[level-1];
+    int *quads = multi->quads[level];
+    int *hanging = multi->hanging[level];
+    int *hanging_info = multi->hanging_info[level];
+    double *u = multi->u[level];
+    double *res = multi->f[level-1];
+    double *Wee,*Wen,*Wnn;
+    double U[4];
+    double De[4];
+    double Dn[4];
+    double Fe[4];
+    double Fn[4];
+    double H[4] = {-0.5,-0.5,0.5,0.5};
+    int i,j,m,kk;
+    
+    // Step 1 : Compute the residual on the fine grid
+    for(i=0;i<nNodes_up;i++){
+        res[map_up[i]] = multi->f[level][map_up[i]];
+    }
+    //quadrants
+    for(kk=0;kk<multi->nQuadrants[level];kk++){
+        //geometric factors
+        Wee = &(multi->Wee[level][4*kk]);
+        Wen = &(multi->Wen[level][4*kk]);
+        Wnn = &(multi->Wnn[level][4*kk]);
+        //compute U (interpolate if hanging)
+        if(hanging[kk]){
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    if(hanging_info[4*kk+j*2+i]>=0){
+                        U[i*2+j] = 0.5*(u[quads[4*kk+j*2+i]]+u[quads[4*kk+hanging_info[4*kk+j*2+i]]]);
+                    }
+                    else{
+                        U[i*2+j] = u[quads[4*kk+j*2+i]];
+                    }
+                }
+            }
+        }
+        else{
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    U[i*2+j] = u[quads[4*kk+j*2+i]];
+                }
+            }
+        }
+        //compute De and Dn
+        for(i=0;i<2;i++){
+            for(j=0;j<2;j++){
+                De[i*2+j] = 0.0;
+                Dn[i*2+j] = 0.0;
+                for(m=0;m<2;m++){
+                    De[i*2+j] += H[m*2+i]*U[m*2+j];
+                    Dn[i*2+j] += H[m*2+j]*U[i*2+m];
+                }
+            }
+        }
+        //compute Fe and Fn
+        for(i=0;i<2;i++){
+            for(j=0;j<2;j++){
+                Fe[i*2+j] = Wee[j*2+i]*De[i*2+j] + Wen[j*2+i]*Dn[i*2+j];
+                Fn[i*2+j] = Wen[j*2+i]*De[i*2+j] + Wnn[j*2+i]*Dn[i*2+j];
+            }
+        }
+        //compute residual (for the non hanging nodes)
+        if(hanging[kk]){
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    if(hanging_info[4*kk+j*2+i]<0){
+                        for(m=0;m<2;m++){
+                            res[quads[4*kk+j*2+i]] -= (H[i*2+m]*Fe[m*2+j] + Fn[i*2+m]*H[j*2+m]);
+                        }
+                    }
+                }
+            }
+        }
+        else{
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    for(m=0;m<2;m++){
+                        res[quads[4*kk+j*2+i]] -= (H[i*2+m]*Fe[m*2+j] + Fn[i*2+m]*H[j*2+m]);
+                    }
+                }
+            }
+        }
+    }
+    // Step 2 : restrict the residual on the coarse grid (and look at boudnary conditions!)
+    for(i=0;i<nNodes_down;i++){
+        if(boundary[map_down[i]]){
+            res[map_down[i]] = multi->f[level][map_down[i]] - u[map_down[i]];
+        }
+    }
+}
 
 
 

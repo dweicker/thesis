@@ -21,7 +21,59 @@
 
 
 
+/** Helper function to write a matrix in a file (with double pointer)
+ *
+ * \param[in] A             The matrix to write
+ * \param[in] n             The size of the matrix
+ * \param[in] filename      The name of the file to write the matrix in
+ */
+void write_matrix(double **A,int n, const char *filename){
+    int i,j;
+    FILE *file = fopen(filename,"w");
+    for(j=0;j<n;j++){
+        for(i=0;i<n;i++){
+            fprintf(file,"%.10e ",A[j][i]);
+        }
+        fprintf(file,"\n");
+    }
+    fclose(file);
+}
 
+/** Helper function to write a matrix in a file (with single pointer)
+ *
+ * \param[in] A             The matrix to write
+ * \param[in] n             The size of the matrix
+ * \param[in] filename      The name of the file to write the matrix in
+ */
+void write_matrix_from_vector(double *A,int n, const char *filename){
+    int i,j;
+    FILE *file = fopen(filename,"w");
+    for(j=0;j<n;j++){
+        for(i=0;i<n;i++){
+            fprintf(file,"%.10e ",A[j*n+i]);
+        }
+        fprintf(file,"\n");
+    }
+    fclose(file);
+}
+
+/** Helper function to write a vector in a file
+ *
+ * \param[in] U             The vector to write
+ * \param[in] n             The length of the vector
+ * \param[in] filename      The name of the file to write the vector in
+ */
+void write_vector(double *U,int n, const char *filename){
+    int j;
+    FILE *file = fopen(filename,"w");
+    for(j=0;j<n;j++){
+        fprintf(file,"%.10e\n",U[j]);
+    }
+    fclose(file);
+}
+
+
+/** MAIN FUNCTION **/
 int main(int argc, const char * argv[]) {
     sc_MPI_Comm mpicomm;
     p4est_connectivity_t* conn;
@@ -33,13 +85,13 @@ int main(int argc, const char * argv[]) {
     const char *scalar_name = "ones";
     int i,j;
     
-    //conn = p4est_connectivity_new_unitsquare();
-    conn = p4est_connectivity_read_inp(inputfile);
+    conn = p4est_connectivity_new_unitsquare();
+    //conn = p4est_connectivity_read_inp(inputfile);
     p4est = p4est_new(mpicomm,conn,0,NULL,NULL);
     
     p4est_refine(p4est,0,refine_true,NULL);
     p4est_refine(p4est,0,refine_top_right,NULL);
-    p4est_refine(p4est,0,refine_top_right,NULL);
+    //p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
     /* Create the ghost layer to learn about parallel neighbors. */
@@ -157,7 +209,7 @@ int main(int argc, const char * argv[]) {
     }
     
     
-    free(transform);free(gen_proj);free(H);free(A);free(b);
+    free(transform);free(gen_proj);free(H);free(A);
     
     
     //conjugate gradients
@@ -171,21 +223,27 @@ int main(int argc, const char * argv[]) {
     
     /** Test for the Multigrid **/
     multiStruc *multi = malloc(sizeof(multiStruc));
-    multi_create_data(p4est,lnodes,multi);
-    
-    int nLev = multi->maxlevel;
-    printf("MULTIGRID quad \n");
-    for(i=nLev;i>=0;i--){
-        printf("%d : ",multi->nNodes[i]);
-        for(j=0;j<(multi->nNodes[i]);j++){
-            printf("%d ",multi->map_glob[i][j]);
-        }
-        printf("\n");
+    multi_create_data(p4est,lnodes,x,y,multi);
+    int maxlevel = multi->maxlevel;
+    //iterations
+    for(i=0;i<multi->nNodes[maxlevel];i++){
+        multi->f[maxlevel][i] = b[i];
     }
+    double *D = calloc(multi->nNodes[maxlevel],sizeof(double));
+    double *uStar = calloc(multi->nNodes[maxlevel],sizeof(double));
+    multi_smooth(multi,multi->maxlevel, x, y, bc, 2.0/3.0, 4,D,uStar);
+    multi_restriction(multi,multi->maxlevel,bc);
+    
+    for(i=0;i<multi->nNodes[maxlevel-1];i++){
+        printf("%d : %f\n",i,multi->f[maxlevel-1][multi->map_glob[maxlevel-1][i]]);
+    }
+    
+    
+    free(D);
+    free(uStar);
     multi_free(multi);
     free(multi);
-    
-    
+    free(b);
     
     
     

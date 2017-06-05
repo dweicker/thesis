@@ -1,32 +1,32 @@
 <?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" compressor="vtkZLibDataCompressor" byte_order="LittleEndian">
   <UnstructuredGrid>
-    <Piece NumberOfPoints="92" NumberOfCells="23">
+    <Piece NumberOfPoints="28" NumberOfCells="7">
       <Points>
         <DataArray type="Float32" Name="Position" NumberOfComponents="3" format="binary">
-          AQAAAACAAABQBAAAJQEAAA==eNpNkrGRwjAQRbmhJKcMQjk9nCJVwUhQhp1AJYfJrRrsDo6UBMNidvWY0ehrefO89qoM+015r9X717WPrWbZ5ax1zU2zdpU5WJa6MlKveb+R/9SjuXyee3D1uZp/nCzJMW4tyy5nrWvuWg8+gffgE3jxe/g9/An+9O1z52Qt7/hrWXY5a11zGQL4DD6Az+DFH+AP8Gf4M/wB/gB/hj9/3+tkM4rxz9VZn2xGUq+zvoF/gr+Bf2K+R/vmTXO2LHX95lLXXIYL+Cv4C/gr+KPNaPF7+BP8CX4Pv4c/wa98j35G9NOjnxH9TOBn8BP4GXyPfkb006OfEXdvsjvTtf+Wpa53RuqaY7yDn8Hfwc/gJ7sziz/An+HP8Af4A/wZ/iW/ACIxRhQ=
+          AQAAAACAAABQAQAAcAAAAA==eNpNjdENgCAMRDWOxC+B9N85mIJ0D5hJBvJPT3NwJE1fy+V1XGccb23v6+1OZHTM3JNDOPLK1MnYM4P94jPijx7y+O7WvO6S94wCl5Imo2PmntybSd4lb5J3ycNv4jfxu/hd/CZ+E7+L/+cHlABgCQ==
         </DataArray>
       </Points>
       <Cells>
         <DataArray type="Int32" Name="connectivity" format="binary">
-          AQAAAACAAABwAQAAlwAAAA==eNoNw4c2QgEAANBXKoRESCUjq4XsmZQZiczi//+je8+5QRAEIcOOGDFqzFHHHDfuhJNOmXDapDPOmnLOeRdMu2jGrDmXzLvsiquuWXDdDTfdctuiJctWrLrjrnvW3PfAQ4889sRTzzz3wkuvrHttwxubtrz1znsffPTJts++2PHVrm++2/PDT7/89sdf+w78898h7XEQWw==
+          AQAAAACAAABwAAAANQAAAA==eNoNw4UNgAAMALDh7g7//0mbNCIiMTUzt7C0sraxtbN3cHRydnF1c/fw9PL28fXzBzmIAXs=
         </DataArray>
         <DataArray type="Int32" Name="offsets" format="binary">
-          AQAAAACAAABcAAAAQAAAAA==eNoNw5ESgEAUAMAHB8FBEATBQRAEQRAEQRAcBEHQ/39HuzObIqIx29rZO1gcnZxdXN3cPTy9rN4+vn7+kBwEUQ==
+          AQAAAACAAAAcAAAAGwAAAA==eNpjYWBg4ABiHiAWAGIRIJYAYhkgBgAFXABx
         </DataArray>
         <DataArray type="UInt8" Name="types" format="binary">
-          AQAAAACAAAAXAAAACwAAAA==eNrj4MAKAAi3ALk=
+          AQAAAACAAAAHAAAACwAAAA==eNrj4AADAADnADk=
         </DataArray>
       </Cells>
       <CellData Scalars="treeid,level,mpirank">
         <DataArray type="Int32" Name="treeid" format="binary">
-          AQAAAACAAABcAAAADgAAAA==eNpjYCAOMJKBAQHIAA4=
+          AQAAAACAAAAcAAAACwAAAA==eNpjYMANAAAcAAE=
         </DataArray>
         <DataArray type="UInt8" Name="level" format="binary">
-          AQAAAACAAAAXAAAAFQAAAA==eNpjZGRkYmJiBgIwgwnKAQACLAAy
+          AQAAAACAAAAHAAAADQAAAA==eNpjZGRkAgIAAC0ADA==
         </DataArray>
         <DataArray type="Int32" Name="mpirank" format="binary">
-          AQAAAACAAABcAAAADAAAAA==eNpjYKAdAAAAXAAB
+          AQAAAACAAAAcAAAACwAAAA==eNpjYMANAAAcAAE=
         </DataArray>
       </CellData>
       <PointData>
