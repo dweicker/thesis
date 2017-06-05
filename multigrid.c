@@ -303,12 +303,120 @@ void multi_free(multiStruc *multi){
  * \param [in] level                    The level at which we perform the smoothing
  * \param [in] x,y                      The coordinates for every global point
  * \param [in] omega                    Parameter in the weighted Jacobi scheme
+ * \param [in] iter                     The number of iterations we do
  * \param [in] D                        Vector for the diagonal matrix D
  * \param [in] uStar                    Vector for the jacobi method
  */
-void multi_smooth(multiStruc *multi, int level, double *x, double *y, double omega, double *D, double *uStar){
+void multi_smooth(multiStruc *multi, int level, double *x, double *y, double omega, int iter, double *D, double *uStar){
     int nElem = multi->nQuadrants[level];
+    int nNodes = multi->nNodes[level];
+    double *u = multi->u[level];
+    double *f = multi->f[level];
+    int *quads = multi->quads[level];
+    int *hanging = multi->hanging[level];
+    int *hanging_info = multi->hanging_info[level];
+    int *map_glob = multi->map_glob[level];
+    int it,kk,i,j;
+    
+    double U[4];
+    double Wee[4];
+    double Wen[4];
+    double Wnn[4];
+    double De[4];
+    double Dn[4];
+    double Fe[4];
+    double Fn[4];
+    double H[4] = {-0.5,-0.5,0.5,0.5};
+    double X[4];
+    double Y[4];
+    double factors[3];
+    
+    //we do a given number of iterations
+    for(it=0;it<iter;it++){
+        //we first clean D and uStar
+        for(i=0;i<nNodes;i++){
+            D[map_glob[i]] = 0.0;
+            uStar[map_glob[i]] = f[map_glob[i]];
+        }
+        //we iterate on the quadrants
+        for(kk=0;kk<nElem;kk++){
+            //geometric factors
+            for(i=0;i<4;i++){
+                X[i] = x[quads[4*kk+i]];
+                Y[i] = y[quads[4*kk+i]];
+            }
+            geom_factor(X,Y,-1,-1,factors);
+            Wee[0] = factors[0]; Wen[0] = factors[1]; Wnn[0] = factors[2];
+            geom_factor(X,Y,1,-1,factors);
+            Wee[1] = factors[0]; Wen[1] = factors[1]; Wnn[1] = factors[2];
+            geom_factor(X,Y,-1,1,factors);
+            Wee[2] = factors[0]; Wen[2] = factors[1]; Wnn[2] = factors[2];
+            geom_factor(X,Y,1,1,factors);
+            Wee[3] = factors[0]; Wen[3] = factors[1]; Wnn[3] = factors[2];
+            //compute U (interpolate if hanging)
+            if(hanging[kk]){
+                for(j=0;j<2;j++){
+                    for(i=0;i<2;i++){
+                        if(hanging_info[4*kk+j*2+i]>=0){
+                            U[j*2+i] = 0.5*(u[quads[4*kk+j*2+i]]+u[quads[4*kk+hanging_info[4*kk+j*2+i]]]);
+                        }
+                        else{
+                            U[j*2+i] = u[quads[4*kk+j*2+i]];
+                        }
+                    }
+                }
+            }
+            else{
+                for(j=0;j<2;j++){
+                    for(i=0;i<2;i++){
+                        U[j*2+i] = u[quads[4*kk+j+i]];
+                    }
+                }
+            }
+            //compute De and Dn
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    for(m=0;m<2;m++){
+                        De = 
+                    }
+                }
+            }
+            
+            //compute Fe and Fn
+            
+        }
+        //the update (check if not hanging! and not boundary!)
+        for(i=0;i<nNodes;i++){
+            u[map_glob[i]] = omega*uStar[map_glob[i]]/D[map_glob[i]] + (1-omega)*u[map_glob[i]];
+        }
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

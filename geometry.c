@@ -93,7 +93,7 @@ void geom_factor(double *X, double *Y, double xsi, double eta, double *factor){
  * \param [in] gll_points           Gauss-Lobatto-Legendre points
  * \param [in] weights              GLL 1D integration weights
  * \param [in] degree               The degree of the interpolation
- * \param [out] Wee,Wen,Wnn     The different generalized weights
+ * \param [out] Wee,Wen,Wnn         The different generalized weights
  */
 void gen_weights(double *X, double *Y, double *gll_points, double *weights, int degree, double *Wee, double *Wen, double *Wnn){
     int p,q;
