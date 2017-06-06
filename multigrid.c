@@ -8,6 +8,10 @@
 
 #include "multigrid.h"
 
+#define SMOOTH_FAC 2.0/3.0
+#define N_PRE 2
+#define N_POST 2
+
 
 /** Little compare function for integers
  *
@@ -382,6 +386,7 @@ void multi_free(multiStruc *multi){
  *
  * \param [in,out] multi                The multigrid structure
  * \param [in] level                    The level at which we perform the smoothing
+ * \param [in] toplevel                 The top level in the recursion (for V-cycle it is maxlevel but it varies for W-cycle)
  * \param [in] x,y                      The coordinates for every global point
  * \param [in] boundary                 Boolean flags to check for the boundaries
  * \param [in] omega                    Parameter in the weighted Jacobi scheme
@@ -613,6 +618,127 @@ void multi_restriction(multiStruc *multi, int level, int *boundary){
         }
     }
 }
+
+
+/** Prolongs the solution from the coarse grid onto the fine grid just above
+ *
+ * \param[in] multi             The multigrid structure
+ * \param[in] level             The "coarse" level (where we have the correction)
+ */
+void multi_prolongation(multiStruc *multi, int level){
+    /* This is a two steps problem
+     * 1. We go quadrant by quadrant and fill u[level] when up is not -1 (the nodes that are the same are already good!!!)
+     * 2. We correct u[level+1] by adding u[level]
+     */
+    int nNodes_up = multi->nNodes[level+1];
+    int *quads = multi->quads[level];
+    int *quads_up = multi->quads[level+1];
+    int *up = multi->up[level];
+    int *hanging_up = multi->hanging[level+1];
+    int *hanging_info_up = multi->hanging_info[level+1];
+    int *map_up = multi->map_glob[level+1];
+    double *u = multi->u[level];
+    int i,kk;
+    
+    // Step 1 : we go through the quadrants and fill the new points
+    for(kk=0;kk<multi->nQuadrants[level];kk++){
+        //if this quadrant has children (quadrants that have children cannot hang! but their children might!)
+        if(up[4*kk]>=0){
+            //the middle is never hanging
+            u[quads_up[4*up[4*kk]+3]] = 0.25*(u[quads[4*kk]]+u[quads[4*kk+1]]+u[quads[4*kk+1]]+u[quads[4*kk+1]]);
+            //left  and bottom points (might be hanging)
+            if(hanging_up[up[4*kk]]){
+                if(hanging_info_up[4*up[4*kk]+2]<0){
+                    u[quads_up[4*up[4*kk]+2]] = 0.5*(u[quads[4*kk]]+u[quads[4*kk+2]]);
+                }
+                if(hanging_info_up[4*up[4*kk]+1]<0){
+                    u[quads_up[4*up[4*kk]+1]] = 0.5*(u[quads[4*kk]]+u[quads[4*kk+1]]);
+                }
+            }
+            else{
+                u[quads_up[4*up[4*kk]+2]] = 0.5*(u[quads[4*kk]]+u[quads[4*kk+2]]);
+                u[quads_up[4*up[4*kk]+1]] = 0.5*(u[quads[4*kk]]+u[quads[4*kk+1]]);
+            }
+            //right and top points (might be hanging)
+            if(hanging_up[up[4*kk+3]]){
+                if(hanging_info_up[4*up[4*kk+3]+1]<0){
+                    u[quads_up[4*up[4*kk+3]+1]] = 0.5*(u[quads[4*kk+1]]+u[quads[4*kk+3]]);
+                }
+                if(hanging_info_up[4*up[4*kk+3]+2]<0){
+                    u[quads_up[4*up[4*kk+3]+2]] = 0.5*(u[quads[4*kk+2]]+u[quads[4*kk+3]]);
+                }
+            }
+            else{
+                u[quads_up[4*up[4*kk+3]+1]] = 0.5*(u[quads[4*kk+1]]+u[quads[4*kk+3]]);
+                u[quads_up[4*up[4*kk+3]+2]] = 0.5*(u[quads[4*kk+2]]+u[quads[4*kk+3]]);
+            }
+        }
+    }
+    
+    // Step 2 : we correct the upper level
+    for(i=0;i<nNodes_up;i++){
+        multi->u[level+1][map_up[i]] += u[map_up[i]];
+    }
+}
+
+/** Build the matrix to solve for the coarsest level
+ *
+ * \param[in] multi         The multigrid structure
+ * \param[out] A            The matrix to solve at the coarsest level
+ */
+void multi_build_coarsest_matrix(multiStruc *multi, double **A){
+    //TODO
+}
+
+/** Solve the system we need to solve at the coarsest level
+ *
+ * \param[in] multi         The multigrid structure
+ * \param[in] A             The matrix we need to solve
+ * \param[in] v             The solution vector
+ */
+void multi_solve_coarsest(multiStruc *multi, double **A, double *v){
+    //TODO
+}
+
+/** Recursive function for the mu-cycle scheme (remember : mu=1 is V-cycle and mu=2 is W-cycle)
+ *
+ * \param[in] multi         The multigrid structure
+ * \param[in] level         The level at which we start
+ * \param[in] mu            The number of time we solve (mu=1 is V-cycle and mu=2 is W-cycle)
+ * \param[in] x,y           The coordinates of the global nodes
+ * \param[in] boundary      Boolean flags for the boundary vector
+ * \param[in] A             The coarsest matrix (needed to solve at the coarsest level)
+ * \param[in] D,uStar       Needed for the smoothing
+ */
+void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary, double **A, double *D, double *uStar){
+    printf("lvl = %d\n",level);
+    //mu-cycle scheme
+    if(level==0){
+        double *v;
+        multi_solve_coarsest(multi,A,v);
+    }
+    else{
+        multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_PRE,D,uStar);
+        multi_restriction(multi,level,boundary);
+        //do not forget to reset the vector u!
+        for(int i=0;i<multi->nNodes[level-1];i++){
+            multi->u[level-1][multi->map_glob[level-1][i]] = 0.0;
+        }
+        //solve mu times (and only one time if the level below is the coarsest!)
+        if(level>1){
+            for(int i=0;i<mu;i++){
+                multi_mu_scheme(multi,level-1,mu,x,y,boundary,A,D,uStar);
+            }
+        }
+        else{
+            multi_mu_scheme(multi,level-1,mu,x,y,boundary,A,D,uStar);
+        }
+        multi_prolongation(multi,level-1);
+        multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_POST,D,uStar);
+    }
+    printf("level = %d\n",level);
+}
+
 
 
 

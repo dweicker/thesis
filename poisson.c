@@ -90,7 +90,10 @@ int main(int argc, const char * argv[]) {
     p4est = p4est_new(mpicomm,conn,0,NULL,NULL);
     
     p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_top_right,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    //p4est_refine(p4est,0,refine_top_right,NULL);
     //p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
@@ -100,31 +103,6 @@ int main(int argc, const char * argv[]) {
     /* Create a node numbering for continuous linear finite elements. */
     lnodes = p4est_lnodes_new (p4est, ghost, 1);
     
-    
-    printf("\n\n");
-    for(i=0;i<lnodes->vnodes*lnodes->num_local_elements;i++){
-        printf(" %d ",lnodes->element_nodes[i]);
-    }
-    printf("\n %d \n\n",lnodes->owned_count);
-    for(i=0;i<lnodes->num_local_elements;i++){
-        printf(" %d ",lnodes->face_code[i]);
-    }
-    printf("\n\n");
-    
-    //physical coordinates of vertices
-    for(i=0;i<conn->num_vertices;i++){
-        printf("%d : %f %f %f\n",i,conn->vertices[3*i],conn->vertices[3*i+1],conn->vertices[3*i+2]);
-    }
-    //gives the number of the vertices of a tree
-    for(i=0;i<4*conn->num_trees;i++){
-        printf("%d\n",conn->tree_to_vertex[i]);
-    }
-    
-    //gives the number of the adjacent tree
-    for(i=0;i<4;i++){
-        printf("%d ",conn->tree_to_face[i]);
-    }
-    printf("\n");
     
     //The corner function does what?
     int Q = p4est->local_num_quadrants;
@@ -170,10 +148,6 @@ int main(int argc, const char * argv[]) {
     build_matrix(p4est, lnodes, bc, xsi, H, weights, A);
     
     multiply_matrix(p4est,lnodes,bc,xsi,H,weights,gen_proj,Wee,Wen,Wnn,hanging,U,V);
-    //print matrix-vector product
-    for(i=0;i<nTot;i++){
-        printf("%d : %f\n",i,V[i]);
-    }
     
     //print coord in file
     FILE *f = fopen("coord.txt","w");
@@ -182,40 +156,12 @@ int main(int argc, const char * argv[]) {
     }
     fclose(f);
 
-    //print derivation matrix
-    for(i=0;i<=degree;i++){
-        for(j=0;j<=degree;j++){
-            printf("%f ",H[i*(degree+1)+j]);
-        }
-        printf("\n");
-    }
-    //print gen_proj
-    for(i=0;i<2*N;i++){
-        for(j=0;j<N;j++){
-            printf("%f ",gen_proj[i*N+j]);
-        }
-        printf("\n");
-    }
-    //print A
-    for(i=0;i<nTot;i++){
-        for(j=0;j<nTot;j++){
-            printf("%f ",A[nTot*i+j]);
-        }
-        printf("\n");
-    }
-    //print b
-    for(i=0;i<nTot;i++){
-        printf("%f\n",b[i]);
-    }
-    
-    
     free(transform);free(gen_proj);free(H);free(A);
-    
     
     //conjugate gradients
     double tol = 0.0001;
     double *sol = calloc(nTot,sizeof(double));
-    conj_grad(p4est, lnodes, xsi, weights, tol, sol, x, y, u_exact);
+    //conj_grad(p4est, lnodes, xsi, weights, tol, sol, x, y, u_exact);
     
     p4est_tree_t *tree = p4est_tree_array_index(p4est->trees,p4est->first_local_tree);
     printf("The maxlevel is : %d \n",tree->maxlevel);
@@ -231,11 +177,13 @@ int main(int argc, const char * argv[]) {
     }
     double *D = calloc(multi->nNodes[maxlevel],sizeof(double));
     double *uStar = calloc(multi->nNodes[maxlevel],sizeof(double));
-    multi_smooth(multi,multi->maxlevel, x, y, bc, 2.0/3.0, 4,D,uStar);
-    multi_restriction(multi,multi->maxlevel,bc);
     
-    for(i=0;i<multi->nNodes[maxlevel-1];i++){
-        printf("%d : %f\n",i,multi->f[maxlevel-1][multi->map_glob[maxlevel-1][i]]);
+    double **DG;
+    multi_mu_scheme(multi,maxlevel,2,x,y,bc,DG,D,uStar);
+    
+    
+    for(i=0;i<multi->nNodes[maxlevel];i++){
+        printf("%d : %f\n",i,multi->u[maxlevel][i]);
     }
     
     

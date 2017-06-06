@@ -39,6 +39,7 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes,double *x,double *
 void multi_free(multiStruc *multi);
 void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *boundary, double omega, int iter, double *D, double *uStar);
 void multi_restriction(multiStruc *multi, int level, int *boundary);
-
+void multi_prolongation(multiStruc *multi, int level);
+void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary, double **A, double *D, double *uStar);
 
 #endif /* multigrid_h */
