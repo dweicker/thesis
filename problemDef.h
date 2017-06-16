@@ -10,6 +10,7 @@
 #define problemDef_h
 
 #include <stdio.h>
+#include <math.h>
 double uexact_func(double x,double y);
 double rhs_func(double x,double y);
 double bc_func(double x,double y);

@@ -10,12 +10,12 @@
 
 /* Exact solution of the problem */
 double uexact_func(double x,double y){
-    return 0.0;
+    return cos(M_PI*x/2)*cos(M_PI*y/2);
 }
 
 /* Exact right-hand side of the problem */
 double rhs_func(double x,double y){
-    return 1.0;
+    return -M_PI*M_PI*cos(M_PI*x/2)*cos(M_PI*y/2)/2;
 }
 
 /* Boundary condition of the problem */

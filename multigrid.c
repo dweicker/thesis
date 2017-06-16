@@ -9,8 +9,8 @@
 #include "multigrid.h"
 
 #define SMOOTH_FAC 2.0/3.0
-#define N_PRE 2
-#define N_POST 2
+#define N_PRE 3
+#define N_POST 1
 
 
 /** Little compare function for integers
@@ -106,13 +106,15 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
  * \param[in] p4est             The forest is not changed
  * \param[in] lnodes            The node numbering is not changed. It is the node numbering of the p=1 grid!
  * \param[in] x,y               The coordinates of the global nodes (for p=1!)
- * \param[in] multi             The multi grid structure as defined in multigrid.h
+ * \param[in] rhs               The right hand side for the finest level
+ * \param[out] multi            The multi grid structure as defined in multigrid.h
  */
-void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double *y, multiStruc *multi){
+void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double *y, double *rhs, int *boundary, multiStruc *multi){
     /** This is a three steps process
      * 1. Base info : maxlevel + intialization structure (loop on the trees)
      * 2. We go through the finest grid and fill the info
      * 3. We decrease the level recursively by using info from above
+     * 4. We build the matrix A for the coarsest level
      */
     int i,j;
     p4est_topidx_t tt;
@@ -151,6 +153,9 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double
     multi->Wen = malloc((maxlevel+1)*sizeof(double*));
     multi->Wnn = malloc((maxlevel+1)*sizeof(double*));
     
+    multi->D = malloc(nNodes*sizeof(double));
+    multi->uStar = malloc(nNodes*sizeof(double));
+    
     
     /* Step 2 : finest grid */
     int *nLevel = calloc(maxlevel+1,sizeof(int));
@@ -165,6 +170,9 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double
     multi->map_glob[maxlevel] = malloc(nNodes*sizeof(int));
     multi->u[maxlevel] = calloc(nNodes,sizeof(double));
     multi->f[maxlevel] = calloc(nNodes,sizeof(double));
+    for(i=0;i<nNodes;i++){
+        multi->f[maxlevel][i] = rhs[i];
+    }
     multi->Wee[maxlevel] = malloc(4*nElem*sizeof(double));
     multi->Wen[maxlevel] = malloc(4*nElem*sizeof(double));
     multi->Wnn[maxlevel] = malloc(4*nElem*sizeof(double));
@@ -345,6 +353,10 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double
         multi->nNodes[lev] = j+1;
         
     }
+    
+    /* Step 4 : we build the matrix A_coarsest */
+    multi_build_coarsest_matrix(multi,boundary);
+    
     free(nLevel);
     free(quad_level);
 }
@@ -379,6 +391,10 @@ void multi_free(multiStruc *multi){
     free(multi->Wnn);
     free(multi->nQuadrants);
     free(multi->nNodes);
+    multi_free_coarsest_matrix(multi);
+    free(multi->A_coarsest);
+    free(multi->D);
+    free(multi->uStar);
 }
 
 
@@ -522,7 +538,6 @@ void multi_restriction(multiStruc *multi, int level, int *boundary){
      * 1. Compute the residual on the fine grid
      * 2. Restrict it on the coarse grid
      */
-    int nNodes_glob = multi->nNodes[multi->maxlevel];
     int nNodes_up = multi->nNodes[level];
     int nNodes_down = multi->nNodes[level-1];
     int *map_up = multi->map_glob[level];
@@ -619,6 +634,166 @@ void multi_restriction(multiStruc *multi, int level, int *boundary){
     }
 }
 
+/** Computes and restricts the residual from the above level to the lower level (using the transpose of the interpolation)
+ *
+ * \param[in] multi             The multigrid structure
+ * \param[in] level             The above level (the level where we compute the residual)
+ * \param[in] boundary          Boolean flags for boundary conditions on the global nodes
+ */
+void multi_restriction_full(multiStruc *multi, int level, int *boundary){
+    /*This is a two-step problem
+     * 1. Compute the residual on the fine grid
+     * 2. Restrict it on the coarse grid
+     */
+    int i,j,m,kk;
+    int nNodes_up = multi->nNodes[level];
+    int nNodes_down = multi->nNodes[level-1];
+    int *map_up = multi->map_glob[level];
+    int *map_down = multi->map_glob[level-1];
+    int *quads = multi->quads[level];
+    int *quads_down = multi->quads[level-1];
+    int *hanging = multi->hanging[level];
+    int *hanging_info = multi->hanging_info[level];
+    int *up = multi->up[level-1];
+    double *u = multi->u[level];
+    double *res = multi->f[level-1];
+    double *Wee,*Wen,*Wnn;
+    double U[4];
+    double A_loc[4][4];
+    
+    // Step 1 : compute the residual on the fine grid
+    for(i=0;i<nNodes_up;i++){
+        res[map_up[i]] = multi->f[level][map_up[i]];
+    }
+    for(kk=0;kk<multi->nQuadrants[level];kk++){
+        //geom factors
+        Wee = &(multi->Wee[level][4*kk]);
+        Wen = &(multi->Wen[level][4*kk]);
+        Wnn = &(multi->Wnn[level][4*kk]);
+        //compute U (interpolate if hanging)
+        if(hanging[4*kk]){
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    if(hanging_info[4*kk+2*j+i]>=0){
+                        U[j*2+i] = 0.5*(u[quads[4*kk+j*2+i]]+u[quads[4*kk+hanging_info[4*kk+j*2+i]]]);
+                    }
+                    else{
+                        U[j*2+i] = u[quads[4*kk+j*2+i]];
+                    }
+                }
+            }
+        }
+        else{
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    U[j*2+i] = u[quads[4*kk+j*2+i]];
+                }
+            }
+        }
+        //Build A_loc
+        A_loc[0][0] = 0.25*(Wee[0]+2*Wen[0]+Wnn[0]+Wee[1]+Wnn[2]);
+        A_loc[1][1] = 0.25*(Wee[0]+Wee[1]-2*Wen[1]+Wnn[1]+Wnn[3]);
+        A_loc[2][2] = 0.25*(Wnn[0]+Wee[2]-2*Wen[2]+Wnn[2]+Wee[3]);
+        A_loc[3][3] = 0.25*(Wnn[1]+Wee[2]+Wee[3]+2*Wen[3]+Wnn[3]);
+        A_loc[0][1] = 0.25*(-Wee[0]-Wee[1]+Wen[1]-Wen[0]);
+        A_loc[0][2] = 0.25*(Wen[2]-Wen[0]-Wnn[0]-Wnn[2]);
+        A_loc[0][3] = 0.25*(-Wen[2]-Wen[1]);
+        A_loc[1][2] = 0.25*(Wen[3]+Wen[0]);
+        A_loc[1][3] = 0.25*(-Wen[3]+Wen[1]-Wnn[3]-Wnn[1]);
+        A_loc[2][3] = 0.25*(-Wee[2]-Wee[3]+Wen[2]-Wen[3]);
+        A_loc[1][0] = A_loc[0][1];
+        A_loc[2][0] = A_loc[0][2];
+        A_loc[3][0] = A_loc[0][3];
+        A_loc[2][1] = A_loc[1][2];
+        A_loc[3][1] = A_loc[1][3];
+        A_loc[3][2] = A_loc[2][3];
+        //compute the residual (for non hanging nodes)
+        if(hanging[kk]){
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    if(hanging_info[4*kk+j*2+i]<0){
+                        for(m=0;m<4;m++){
+                            res[quads[4*kk+j*2+i]] -= A_loc[j*2+i][m]*U[m];
+                        }
+                    }
+                }
+            }
+        }
+        else{
+            for(j=0;j<2;j++){
+                for(i=0;i<2;i++){
+                    for(m=0;m<2;m++){
+                        res[quads[4*kk+j*2+i]] -= A_loc[j*2+i][m]*U[m];
+                    }
+                }
+            }
+        }
+    }
+    
+    //Step 2 : restrict the residual (using the transpose)
+    // We loop on the quadrants on the coarser level and if one has child then the value of the inner points must be added to the large four corners
+    double res_middle;
+    double res_left;
+    double res_right;
+    double res_bottom;
+    double res_top;
+    for(kk=0;kk<multi->nQuadrants[level-1];kk++){
+        if(up[4*kk]>=0){
+            //the middle is never hanging
+            res_middle = res[quads[4*up[4*kk]+3]];
+            for(i=0;i<4;i++){
+                res[quads_down[4*kk+i]] += 0.25*res_middle;
+            }
+            //left and bottom points (might be hanging)
+            if(hanging[up[4*kk]]){
+                if(hanging_info[4*up[4*kk]+2]<0){
+                    res_left = res[quads[4*up[4*kk]+2]];
+                    res[quads_down[4*kk]] += 0.25*res_left; //0.25 and not 0.5 since each non hanging edge touch two quadrants (ok for boundary)
+                    res[quads_down[4*kk+2]] += 0.25*res_left;
+                }
+                if(hanging_info[4*up[4*kk]+1]<0){
+                    res_bottom = res[quads[4*up[4*kk]+1]];
+                    res[quads_down[4*kk]] += 0.25*res_bottom;
+                    res[quads_down[4*kk+1]] += 0.25*res_bottom;
+                }
+            }
+            else{
+                res_left = res[quads[4*up[4*kk]+2]];
+                res_bottom = res[quads[4*up[4*kk]+1]];
+                res[quads_down[4*kk]] += 0.25*(res_left+res_bottom);
+                res[quads_down[4*kk+2]] += 0.25*res_left;
+                res[quads_down[4*kk+1]] += 0.25*res_bottom;
+            }
+            //right and top points (might be hanging)
+            if(hanging[up[4*kk+3]]){
+                if(hanging_info[4*up[4*kk+3]+1]<0){
+                    res_right = res[quads[4*up[4*kk+3]+1]];
+                    res[quads_down[4*kk+1]] += 0.25*res_right;
+                    res[quads_down[4*kk+3]] += 0.25*res_right;
+                }
+                if(hanging_info[4*up[4*kk+3]+2]<0){
+                    res_top = res[quads[4*up[4*kk+3]+2]];
+                    res[quads_down[4*kk+2]] += 0.25*res_top;
+                    res[quads_down[4*kk+3]] += 0.25*res_top;
+                }
+            }
+            else{
+                res_right = res[quads[4*up[4*kk+3]+1]];
+                res_top = res[quads[4*up[4*kk+3]+2]];
+                res[quads_down[4*kk+1]] += 0.25*res_right;
+                res[quads_down[4*kk+2]] += 0.25*res_top;
+                res[quads_down[4*kk+3]] += 0.25*(res_right+res_top);
+            }
+        }
+    }
+    //finally, we take care of the boundaries
+    for(i=0;i<nNodes_down;i++){
+        if(boundary[map_down[i]]){
+            res[map_down[i]] = multi->f[level][map_down[i]] - u[map_down[i]];
+        }
+    }
+}
+
 
 /** Prolongs the solution from the coarse grid onto the fine grid just above
  *
@@ -645,7 +820,7 @@ void multi_prolongation(multiStruc *multi, int level){
         //if this quadrant has children (quadrants that have children cannot hang! but their children might!)
         if(up[4*kk]>=0){
             //the middle is never hanging
-            u[quads_up[4*up[4*kk]+3]] = 0.25*(u[quads[4*kk]]+u[quads[4*kk+1]]+u[quads[4*kk+1]]+u[quads[4*kk+1]]);
+            u[quads_up[4*up[4*kk]+3]] = 0.25*(u[quads[4*kk]]+u[quads[4*kk+1]]+u[quads[4*kk+2]]+u[quads[4*kk+3]]);
             //left  and bottom points (might be hanging)
             if(hanging_up[up[4*kk]]){
                 if(hanging_info_up[4*up[4*kk]+2]<0){
@@ -681,23 +856,140 @@ void multi_prolongation(multiStruc *multi, int level){
     }
 }
 
-/** Build the matrix to solve for the coarsest level
+/** Allocate and build the matrix to solve for the coarsest level
  *
  * \param[in] multi         The multigrid structure
- * \param[out] A            The matrix to solve at the coarsest level
+ * \param[in] boundary      Boolean flags for the global nodes on the boundary
  */
-void multi_build_coarsest_matrix(multiStruc *multi, double **A){
-    //TODO
+void multi_build_coarsest_matrix(multiStruc *multi, int *boundary){
+    int nNodes = multi->nNodes[0];
+    int *quads = multi->quads[0];
+    int *map_glob = multi->map_glob[0];
+    int i,j,kk;
+    double A_loc[4][4];
+    double *Wee,*Wen,*Wnn;
+    
+    multi->A_coarsest = malloc(nNodes*sizeof(double*));
+    for(i=0;i<nNodes;i++){
+        multi->A_coarsest[i] = calloc(nNodes,sizeof(double));
+    }
+    double **A = multi->A_coarsest;
+    
+    //we first build inverse_map
+    int *inverse_map = calloc(multi->nNodes[multi->maxlevel],sizeof(int));
+    for(i=0;i<nNodes;i++){
+        inverse_map[map_glob[i]] = i;
+    }
+    
+    //loop on the quadrants
+    for(kk=0;kk<multi->nQuadrants[0];kk++){
+        Wee = &(multi->Wee[0][4*kk]);
+        Wen = &(multi->Wen[0][4*kk]);
+        Wnn = &(multi->Wnn[0][4*kk]);
+        A_loc[0][0] = 0.25*(Wee[0]+2*Wen[0]+Wnn[0]+Wee[1]+Wnn[2]);
+        A_loc[1][1] = 0.25*(Wee[0]+Wee[1]-2*Wen[1]+Wnn[1]+Wnn[3]);
+        A_loc[2][2] = 0.25*(Wnn[0]+Wee[2]-2*Wen[2]+Wnn[2]+Wee[3]);
+        A_loc[3][3] = 0.25*(Wnn[1]+Wee[2]+Wee[3]+2*Wen[3]+Wnn[3]);
+        A_loc[0][1] = 0.25*(-Wee[0]-Wee[1]+Wen[1]-Wen[0]);
+        A_loc[0][2] = 0.25*(Wen[2]-Wen[0]-Wnn[0]-Wnn[2]);
+        A_loc[0][3] = 0.25*(-Wen[2]-Wen[1]);
+        A_loc[1][2] = 0.25*(Wen[3]+Wen[0]);
+        A_loc[1][3] = 0.25*(-Wen[3]+Wen[1]-Wnn[3]-Wnn[1]);
+        A_loc[2][3] = 0.25*(-Wee[2]-Wee[3]+Wen[2]-Wen[3]);
+        A_loc[1][0] = A_loc[0][1];
+        A_loc[2][0] = A_loc[0][2];
+        A_loc[3][0] = A_loc[0][3];
+        A_loc[2][1] = A_loc[1][2];
+        A_loc[3][1] = A_loc[1][3];
+        A_loc[3][2] = A_loc[2][3];
+        
+        //we use the inverse mapping to assemble the global matrix
+        for(i=0;i<4;i++){
+            for(j=0;j<4;j++){
+                A[inverse_map[quads[4*kk+i]]][inverse_map[quads[4*kk+j]]] += A_loc[i][j];
+            }
+        }
+    }
+    //do not forget the bc
+    for(i=0;i<nNodes;i++){
+        if(boundary[multi->map_glob[0][i]]){
+            for(j=0;j<nNodes;j++){
+                A[i][j] = 0.0;
+            }
+            A[i][i] = 1.0;
+        }
+    }
+    
+    free(inverse_map);
+}
+
+/** Free the matrix to solve for the coarsest level
+ *
+ * \param[in] multi         The multigrid structure
+ * \param[in] A             The matrix to free
+ */
+void multi_free_coarsest_matrix(multiStruc *multi){
+    int nNodes = multi->nNodes[0];
+    for(int i=0;i<nNodes;i++){
+        free(multi->A_coarsest[i]);
+    }
 }
 
 /** Solve the system we need to solve at the coarsest level
  *
  * \param[in] multi         The multigrid structure
- * \param[in] A             The matrix we need to solve
- * \param[in] v             The solution vector
  */
-void multi_solve_coarsest(multiStruc *multi, double **A, double *v){
-    //TODO
+void multi_solve_coarsest(multiStruc *multi){
+    int i,j,k;
+    double factor;
+    int nNodes = multi->nNodes[0];
+    double **A = malloc(nNodes*sizeof(double*));
+    //we copy the data
+    for(i=0;i<nNodes;i++){
+        A[i] = malloc(nNodes*sizeof(double*));
+        for(j=0;j<nNodes;j++){
+            A[i][j] = multi->A_coarsest[i][j];
+        }
+    }
+    double *b = malloc(nNodes*sizeof(double));
+    for(i=0;i<nNodes;i++){
+        b[i] = multi->f[0][multi->map_glob[0][i]];
+    }
+    
+    //Gauss elimination
+    for(k=0;k<nNodes;k++){
+        if(fabs(A[k][k]) < 1e-8){
+            printf("MULTIGRID - COARSEST : Pivot value %e  ",A[k][k]);
+        }
+        for(i=k+1;i<nNodes;i++){
+            factor = A[i][k]/A[k][k];
+            for(j=k+1;j<nNodes;j++){
+                A[i][j] -= A[k][j] * factor;
+            }
+            b[i] -= b[k] * factor;
+        }
+    }
+    
+    //back-substitution
+    for (i = nNodes-1; i >= 0 ; i--) {
+        factor = 0;
+        for (j = i+1 ; j < nNodes; j++){
+            factor += A[i][j] * b[j];
+        }
+        b[i] = (b[i] - factor)/A[i][i];
+    }
+    
+    //fill u
+    for(i=0;i<nNodes;i++){
+        multi->u[0][multi->map_glob[0][i]] = b[i];
+    }
+    
+    //free
+    for(i=0;i<nNodes;i++){
+        free(A[i]);
+    }
+    free(A);
+    free(b);
 }
 
 /** Recursive function for the mu-cycle scheme (remember : mu=1 is V-cycle and mu=2 is W-cycle)
@@ -707,19 +999,15 @@ void multi_solve_coarsest(multiStruc *multi, double **A, double *v){
  * \param[in] mu            The number of time we solve (mu=1 is V-cycle and mu=2 is W-cycle)
  * \param[in] x,y           The coordinates of the global nodes
  * \param[in] boundary      Boolean flags for the boundary vector
- * \param[in] A             The coarsest matrix (needed to solve at the coarsest level)
- * \param[in] D,uStar       Needed for the smoothing
  */
-void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary, double **A, double *D, double *uStar){
-    printf("lvl = %d\n",level);
+void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary){
     //mu-cycle scheme
     if(level==0){
-        double *v;
-        multi_solve_coarsest(multi,A,v);
+        multi_solve_coarsest(multi);
     }
     else{
-        multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_PRE,D,uStar);
-        multi_restriction(multi,level,boundary);
+        multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_PRE,multi->D,multi->uStar);
+        multi_restriction_full(multi,level,boundary);
         //do not forget to reset the vector u!
         for(int i=0;i<multi->nNodes[level-1];i++){
             multi->u[level-1][multi->map_glob[level-1][i]] = 0.0;
@@ -727,16 +1015,15 @@ void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y,
         //solve mu times (and only one time if the level below is the coarsest!)
         if(level>1){
             for(int i=0;i<mu;i++){
-                multi_mu_scheme(multi,level-1,mu,x,y,boundary,A,D,uStar);
+                multi_mu_scheme(multi,level-1,mu,x,y,boundary);
             }
         }
         else{
-            multi_mu_scheme(multi,level-1,mu,x,y,boundary,A,D,uStar);
+            multi_mu_scheme(multi,level-1,mu,x,y,boundary);
         }
         multi_prolongation(multi,level-1);
-        multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_POST,D,uStar);
+        multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_POST,multi->D,multi->uStar);
     }
-    printf("level = %d\n",level);
 }
 
 

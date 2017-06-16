@@ -31,15 +31,21 @@ typedef struct {
     double **Wee;               //for each level, the first part of geometric factors
     double **Wen;               //for each level, the second part of geometric factors
     double **Wnn;               //for each level, the third part of geometric factors
+    double **A_coarsest;        //the mass matrix for the coarsest level
+    double *D,*uStar;           //Needed for the smoothing
 } multiStruc;
 
 int compare_int(const void *a,const void *b);
 void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *U1, double *UP);
-void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes,double *x,double *y, multiStruc *multi);
+void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes,double *x,double *y, double *rhs, int *boundary, multiStruc *multi);
 void multi_free(multiStruc *multi);
 void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *boundary, double omega, int iter, double *D, double *uStar);
 void multi_restriction(multiStruc *multi, int level, int *boundary);
+void multi_restriction_full(multiStruc *multi, int level, int *boundary);
 void multi_prolongation(multiStruc *multi, int level);
-void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary, double **A, double *D, double *uStar);
+void multi_build_coarsest_matrix(multiStruc *multi, int *boundary);
+void multi_free_coarsest_matrix(multiStruc *multi);
+void multi_solve_coarsest(multiStruc *multi);
+void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary);
 
 #endif /* multigrid_h */

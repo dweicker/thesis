@@ -34,7 +34,10 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
     double corners_tree_y[4];double corners_quad_y[4];double y_loc;
     int boundary[4] = {0,0,0,0};
     
-    memset(bc,-1,sizeof(int)*nloc); //indicator variable for visiting
+    //indicator variable for visiting
+    for(i=0;i<nloc;i++){
+        bc[i] = -1;
+    }
     //Loop over the quadtrees
     for(tt = p4est->first_local_tree,k=0;tt<=p4est->last_local_tree;tt++){
         tree = p4est_tree_array_index(p4est->trees,tt);

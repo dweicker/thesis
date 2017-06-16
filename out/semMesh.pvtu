@@ -11,6 +11,6 @@
     </PCellData>
     <PPointData>
     </PPointData>
-    <Piece Source="out/unitSquareMesh_0000.vtu"/>
+    <Piece Source="out/semMesh_0000.vtu"/>
   </PUnstructuredGrid>
 </VTKFile>
