@@ -18,6 +18,7 @@ int refine_true(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * qu
 int refine_top_right(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quadrant);
 int quad_decode(p4est_lnodes_code_t face_code,int hanging_corner[P4EST_CHILDREN]);
 void compute_corners(p4est_t *p4est, double *x, double *y);
+int total_num_quad(p4est_t *p4est);
 
 #endif /* p4estFunc_h */
 

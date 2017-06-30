@@ -110,7 +110,7 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
  * \param[out] multi            The multi grid structure as defined in multigrid.h
  */
 void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double *y, double *rhs, int *boundary, multiStruc *multi){
-    /** This is a three steps process
+    /** This is a four steps process
      * 1. Base info : maxlevel + intialization structure (loop on the trees)
      * 2. We go through the finest grid and fill the info
      * 3. We decrease the level recursively by using info from above
@@ -792,6 +792,12 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
             res[map_down[i]] = multi->f[level][map_down[i]] - u[map_down[i]];
         }
     }
+    
+    
+    for(i=0;i<nNodes_down;i++){
+        printf("%d : %f\n",map_down[i],res[map_down[i]]);
+    }
+
 }
 
 

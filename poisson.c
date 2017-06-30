@@ -18,6 +18,7 @@
 #include "sem.h"
 #include "conjGrad.h"
 #include "multigrid.h"
+#include "finePrecond.h"
 
 
 
@@ -96,10 +97,10 @@ int main(int argc, const char * argv[]) {
     
     /** MESH **/
     p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
     //p4est_refine(p4est,0,refine_true,NULL);
     //p4est_refine(p4est,0,refine_true,NULL);
-    //p4est_refine(p4est,0,refine_top_right,NULL);
+    //p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_top_right,NULL);
     //p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
@@ -129,13 +130,23 @@ int main(int argc, const char * argv[]) {
     
     
     multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
-    multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
-    multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
-    multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+    //multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
     
     for(i=0;i<NN_1;i++){
         printf("%d : %f\n",i,multi->u[multi->maxlevel][i]);
     }
+    
+    /** TEST NEIGHBORS **/
+    int nElem = total_num_quad(p4est);
+    int *neighbors = malloc(8*nElem*sizeof(int));
+    neighbors_build(p4est,lnodes_P,nElem,neighbors);
+    for(i=0;i<nElem;i++){
+        for(j=0;j<8;j++){
+            printf("%d ",neighbors[8*i+j]);
+        }
+        printf("\n");
+    }
+    free(neighbors);
     
     
     //free

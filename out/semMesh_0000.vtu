@@ -1,32 +1,32 @@
 <?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" compressor="vtkZLibDataCompressor" byte_order="LittleEndian">
   <UnstructuredGrid>
-    <Piece NumberOfPoints="256" NumberOfCells="64">
+    <Piece NumberOfPoints="112" NumberOfCells="28">
       <Points>
         <DataArray type="Float32" Name="Position" NumberOfComponents="3" format="binary">
-          AQAAAACAAAAADAAAhgIAAA==eNpN1sGN2zAQheGwpj0KeASbcQ+68JIqklYWoBpwOvIhSxukvgUMzRLP/9DDN0M9Hv16/Hx+/fz9/dN2PJ/z/7W+4scj6Av6oC/oJz/wA7/AL/ADP/AL/E/87/kaaw9fX793PNfXHub6vbcTzfP7/i3n1sz1O578wA/8Ar/AD/zAL/DLrsNkrTqseK5P7lpf8eTd+oI+6Av6Wedz3HU+x533+X3n/cSfOp/jrvNJ3qUvO5751x5mzhXP59rDfN57O9E8v+/fcm7NXL/jWedz3HU+x533s4dP3rW3E82s80neteeZd8cHHgjeOPBM8BKaV/Be8Azx5Ad+4Bf4BX7gB36Bv3uh0oOV3qz0bKWX0Xf0DX1HP/mBH/gFfoEf+IFf4O9eOPBA8MaBZ4KX0LyC94JniGedtweCNw48E7yE5hW8FzwfeqHSg5XerPRspZfRd/QNfUc/67x7sNKblZ6t9DL6jr6h71X/zw91OKhbqFuow0EdDuoW6hbOMZxjOPdw7uEcwzmS9xXOPdThoA4HdQt1C3U4qMNB3ULdwjmGcyTvK5x7OMdwjuR9hXMPc6AyBypzozI3KnOgMgcqc6MyNypzDH6D3+F3+A1+g9/hr+++50BlDlTmRmVuVOZAZQ5U5kZlbsBv8Bv8Dr/Db/Ab/A5/xxceuPDGhWcuvIS+oA/6gv59j4d7PNz74d4P93i4x8m7PX/RC4MeHPTmoGcHvYzmfQ8e3Jvh3gz3eLjHybt7dtDLaN73OHm357/phQsPXHjjwjMXXkJf0Ad9Qf9+j4Xf4Hf4HX6D3+B3+LsXBj046M1Bzw56Gc37PbDy3lh5b4Tf4Df4HX6H3+A3+B3+J/4PGJofPQ==
+          AQAAAACAAABABQAAWwEAAA==eNpVlNGJw0AQQ2+5kvK77LD/riM9BMz8XBVJKzZ2A3ZBB/m4KHPaUQImsiw0+C3j85j383V9vX6Xy/fQ+Mc9ferH/XfLzLRSw2cGfup5xzP2UJ/vudOac0Ofx3PDFf7P0PjHPX3qx/0mmWOhhs8M/NTPDc/YQx1zjyXnhsbzzBwLdcyNTMylnqowacKqCsMmbE2Ym5yFCUPRUyVD9CRPzA2GMZe6GJlcr82STzEygZ88u+Rd8l3yLvliZIKe5IO5wSTmkmeXvEu+S97tk+dU5b2qcGjCoSVPZuah4TMDP/X7XEzOxeQcTc7R8n2L5fuW4eOePnW8L/Mu+S55lzz6u/R36Xfpd+nv0t+l36XfTfauyt5V2dMme9py3wfzVc5iE4arsN3J8P+7IXNnk++M5T4Wy30swycT+MnnJhnsYxk+M/BTo79Lf5d+l36X/i79Xfpd+kP/ATXN1Hg=
         </DataArray>
       </Points>
       <Cells>
         <DataArray type="Int32" Name="connectivity" format="binary">
-          AQAAAACAAAAABAAAiwEAAA==eNoNwwMUFQYAAMCfbdu2bZurlm3b9pZte3nZ3LJt23Z3710gEAgEMajBDG4IQxrK0IYxrOEMbwQjGsnIRjGq0YxuDGMay9jGMa7xjG8CE5rIxCYxqclMbgpTmsrUpjGt6UxvBjOaycxmMavZzG4Oc5rL3OYxr/nMbwELWsjCFrGoxSxuCUtaytKWsazlLG8FK1rJylaxqtWs7h/WsKa1/NPa1rGu9axvAxvayMY2sanNbG4LW9rK1raxre1sbwc72snOdrGr3exuD3vay972sa/97O8ABzrIwQ5xqMMc7ghHOsrR/uXfjnGs4xzvBCc6yclOcarTnO4MZzrL2c5xrvOc7wIXusjFLnGpy1zuCle6yn9c7RrXus71bnCj/7rJzW5xq9vc7g53usvd7nGv+9zvAQ96yMP+5/8e8ajHPO4JT3rK057xrOc87wUvesnLXvGq17zuDW96y9ve8a73vO8DH/rIxz7xqc987gtf+srXvvGt73zvBz/6yc9+8avf/O4Pf/rL37f2f4E=
+          AQAAAACAAADAAQAAsQAAAA==eNoNw1VSQgEAAMBntwJ2oSJiYHcLtmJ3dxf3/3N3ZoMgCHLMNc98Cyy0yGJLLLXMciustMqQYSNWW2OtddbbYKNNNttiq1HbbLfDmJ3G7TJhtz322mfSfgccdMhhRxx1zHEnnHTKaWecdc55F1x0yZRpl11x1TXX3XDTLbfNuOOue+574KFHHnviqWeee+GlV15746133vvgo08+++Krb7774adffvvjr39m/QdM8hhJ
         </DataArray>
         <DataArray type="Int32" Name="offsets" format="binary">
-          AQAAAACAAAAAAQAAkgAAAA==eNoNwxFwAlAAANDf3SAIgkEQBEEQBEEQDIIgCIJBEARBEAyCIAiCYBAMBkEQBEEQBIMgCIIgCIIgCIIgGPTe3XsLIUSNGffdhElTps2YNWfegkU/LFm2YtWan9Zt2LRl245fdu3Zd+DQkd+O/fHXiVNnzl24dOXaPzdu3bn34NGTZy9evXn34dN/QySEFymoH4I=
+          AQAAAACAAABwAAAASAAAAA==eNoNwxESgEAAAMCDIAiCIAiCIAiCIDgIgiAIgiAIgiDo/9TuzCYhhNTM3MLSytrG1s7ewdHo5Ozi6ubu4enl7ePr5w/+MAZZ
         </DataArray>
         <DataArray type="UInt8" Name="types" format="binary">
-          AQAAAACAAABAAAAADAAAAA==eNrj4KAMAABBQAIB
+          AQAAAACAAAAcAAAACwAAAA==eNrj4MANAAzMAOE=
         </DataArray>
       </Cells>
       <CellData Scalars="treeid,level,mpirank">
         <DataArray type="Int32" Name="treeid" format="binary">
-          AQAAAACAAAAAAQAAFAAAAA==eNpjYKAMMFKImSjEzBRiAB3AAGE=
+          AQAAAACAAABwAAAAFAAAAA==eNpjYMANGPFgJjyYGQ8GAAYgACs=
         </DataArray>
         <DataArray type="UInt8" Name="level" format="binary">
-          AQAAAACAAABAAAAADAAAAA==eNpjYqIMAAAQgACB
+          AQAAAACAAAAcAAAAEAAAAA==eNpjZGRkAgJGbBQAAoIALQ==
         </DataArray>
         <DataArray type="Int32" Name="mpirank" format="binary">
-          AQAAAACAAAAAAQAADAAAAA==eNpjYBjZAAABAAAB
+          AQAAAACAAABwAAAADAAAAA==eNpjYKAvAAAAcAAB
         </DataArray>
       </CellData>
       <PointData>

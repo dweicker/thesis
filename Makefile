@@ -17,7 +17,7 @@ all: $(EXEC)
 $(EXEC): $(OBJ)
 	$(CC) -o $(BINDIR)$@ $^ $(LDFLAGS) $(GLLIBS)
 
-$(LIBDIR)poisson.o: problemDef.h geometry.h p4estFunc.h sem.h conjGrad.h
+$(LIBDIR)poisson.o: problemDef.h geometry.h p4estFunc.h sem.h conjGrad.h multigrid.h finePrecond.h
 $(LIBDIR)sem.o:  problemDef.h geometry.h p4estFunc.h
 $(LIBDIR)conjGrad.o : sem.h
 

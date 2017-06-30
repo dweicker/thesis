@@ -95,6 +95,26 @@ void compute_corners(p4est_t *p4est, double *x, double *y){
     }
 }
 
+/** Computes the total number of quadrants in a forest
+ *
+ * \param[in] p4est         The forest is not changed
+ * \return                  The total number of quadrants
+ */
+int total_num_quad(p4est_t *p4est){
+    p4est_topidx_t tt;
+    sc_array_t *tquadrants;
+    p4est_locidx_t Q;
+    p4est_tree_t *tree;
+    int nElem = 0;
+    for(tt = p4est->first_local_tree;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        nElem += Q;
+    }
+    return nElem;
+}
+
 
 
 
