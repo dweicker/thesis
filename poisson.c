@@ -88,6 +88,8 @@ int main(int argc, const char * argv[]) {
     /** BASIC CONSTANTS **/
     double gll_1[2] = {-1.0,1.0};
     double weights_1[2] = {1.0,1.0};
+    double gll_P[3] = {-1.0,0,1.0};
+    double weights_P[3] = {1.0/3.0,4.0/3.0,1.0/3.0};
     int degree = 2;
     
     /** FOREST **/
@@ -136,8 +138,20 @@ int main(int argc, const char * argv[]) {
         printf("%d : %f\n",i,multi->u[multi->maxlevel][i]);
     }
     
+    /** TEST FINE **/
+    double *L = malloc((degree+3)*(degree+3)*sizeof(double));
+    double *V = malloc((degree+3)*(degree+3)*sizeof(double));
+    double *V_inv = malloc((degree+3)*(degree+3)*sizeof(double));
+    double *lambda = malloc((degree+3)*sizeof(double));
+    fine_build_L(gll_P,weights_P,degree,L);
+    fine_diagonalize_L(L,V,V_inv,lambda,degree);
+    free(L);
+    free(V);
+    free(V_inv);
+    free(lambda);
+    
     /** TEST NEIGHBORS **/
-    int nElem = total_num_quad(p4est);
+    /*int nElem = total_num_quad(p4est);
     int *neighbors = malloc(8*nElem*sizeof(int));
     neighbors_build(p4est,lnodes_P,nElem,neighbors);
     for(i=0;i<nElem;i++){
@@ -146,7 +160,7 @@ int main(int argc, const char * argv[]) {
         }
         printf("\n");
     }
-    free(neighbors);
+    free(neighbors);*/
     
     
     //free
@@ -167,7 +181,7 @@ int main(int argc, const char * argv[]) {
     
     
     //TEST LAPACK
-    test_lapack();
+    //test_lapack();
     
     
     return 0;

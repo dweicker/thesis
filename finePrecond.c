@@ -255,12 +255,15 @@ void neighbors_build(p4est_t *p4est, p4est_lnodes_t *lnodes, int nElem, int *nei
  * \param[in] derivation        The derivation matrix (as defined in geometry.c)
  * \param[out] L                The matrix L (as defined in Remacle's paper)
  */
-void fine_build_L(double *gll_points, double *weights, int degree, double *derivation, double *L){
+void fine_build_L(double *gll_points, double *weights, int degree, double *L){
     //L must be column major (i.e. L[j*N+i] = L_ij)
     //derivation (H) is row major (i.e. H[i*N+j] = H_ij)
     //L has dim (degree+3)*(degree+3)
     int i,j,m,N=degree+1,I,J;
     double d;
+    double *derivation = malloc(N*N*sizeof(double));
+    derivation_matrix(gll_points,derivation,degree);
+    
     
     //build M
     double *M = malloc((N+2)*sizeof(double));
@@ -286,22 +289,77 @@ void fine_build_L(double *gll_points, double *weights, int degree, double *deriv
             for(m=0;m<N;m++){
                 d += weights[m]*derivation[i*N+m]*derivation[j*N+m];
             }
+            L[J*(N+2)+I] = d;
+        }
+    }
+    //compute d_00
+    d = 0;
+    for(m=0;m<N;m++){
+        d += weights[m]*derivation[m]*derivation[m];
+    }
+    L[(N+2)+1] += d;
+    L[N*(N+2)+N] += d;
+    //compute d_11
+    d = 0;
+    for(m=0;m<N;m++){
+        d += weights[m]*derivation[N+m]*derivation[N+m];
+    }
+    L[0] = d;
+    L[(N+1)*(N+2)+(N+1)] = d;
+    //compute d_01=d_10
+    d = 0;
+    for(m=0;m<N;m++){
+        d += weights[m]*derivation[N+m]*derivation[m];
+    }
+    L[1] = d;
+    L[N+2] = d;
+    L[(N+1)*(N+2)+N] = d;
+    L[N*(N+2)+(N+1)] = d;
+    
+    //line K_i: must be divided by M_i
+    for(J=0;J<N+2;J++){
+        for(I=0;I<N+2;I++){
+            L[J*(N+2)+I] /= M[I];
         }
     }
     
-    
     free(M);
+    free(derivation);
 }
 
-/** Uses LAPACK to diagonalize L
+/** Uses LAPACK to diagonalize L (L = V_inv*lambda*V)
  *
- *
+ * \param[in] L             The matrix to diagonalize (L=M^-1*K)
+ * \param[out] V,V_inv      The eigenvectors and its inverse
+ * \param[out] Lambda       The eigenvalues
+ * \param[in] degree        The degree of the interpolation
+ * NOTE : the matrix are defined column major (V[j*N+i] = V_ij)!!!
  */
-void fine_diagonalize_L(){
-    //1. dgeev
-    //2. dgetrf
-    //3. dgetri
-    //4. Verify
+void fine_diagonalize_L(double *L, double *V, double *V_inv, double *lambda,int degree){
+    int size = degree+3;
+    int info;
+    int lwork = 10*size;
+    double *work = malloc(lwork*sizeof(double));
+    double *vl = malloc(size*size*sizeof(double));
+    double *lambda_i = malloc(size*sizeof(double));
+    int *ipiv = malloc(size*sizeof(int));
+    
+    //get the eugenvalues and eigenvectors
+    dgeev_("V", "V", &size, L, &size, lambda, lambda_i, vl, &size, V_inv, &size, work, &lwork, &info);
+    //copy the info
+    for(int j=0;j<size;j++){
+        for(int i=0;i<size;i++){
+            V[j*size+i] = V_inv[j*size+i];
+        }
+    }
+    //find the inverse
+    dgetrf_(&size,&size,V,&size,ipiv,&info);
+    dgetri_(&size,V,&size,ipiv,work,&lwork,&info);
+    
+    free(work);
+    free(vl);
+    free(lambda_i);
+    free(ipiv);
 }
 
 
