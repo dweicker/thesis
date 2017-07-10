@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS= -I /Users/davidweicker/Desktop/Thesis/p4est-1.1/local/include/       
-LDFLAGS= -L /Users/davidweicker/Desktop/Thesis/p4est-1.1/local/lib/ -lp4est -lsc -lz
+LDFLAGS= -L /Users/davidweicker/Desktop/Thesis/p4est-1.1/local/lib/ -lp4est -lsc -lz -L /usr/lib/ -llapack
 GLLIBS = 
 SRCDIR = 
 HEADDIR = 

@@ -247,6 +247,130 @@ void neighbors_build(p4est_t *p4est, p4est_lnodes_t *lnodes, int nElem, int *nei
     free(edges);
 }
 
+/** Builds the matrix L (that has to be allocated)
+ *
+ * \param[in] gll_points        The 1D gll points
+ * \param[in] weights           The 1D gauss-lobatto-legendre weights
+ * \param[in] degree            The degree of the interpolation
+ * \param[in] derivation        The derivation matrix (as defined in geometry.c)
+ * \param[out] L                The matrix L (as defined in Remacle's paper)
+ */
+void fine_build_L(double *gll_points, double *weights, int degree, double *derivation, double *L){
+    //L must be column major (i.e. L[j*N+i] = L_ij)
+    //derivation (H) is row major (i.e. H[i*N+j] = H_ij)
+    //L has dim (degree+3)*(degree+3)
+    int i,j,m,N=degree+1,I,J;
+    double d;
+    
+    //build M
+    double *M = malloc((N+2)*sizeof(double));
+    for(i=0;i<N;i++){
+        I = i+1;
+        M[I] = weights[i];
+    }
+    M[0] = weights[1]; M[1] += weights[0];
+    M[N+1] = weights[1]; M[N] += weights[degree];
+    
+    //build K in L
+    //first make sure that everything is 0!
+    for(I=0;I<(N+2)*(N+2);I++){
+        L[I] = 0;
+    }
+    //fill the "interior" (remember that L must be column major!!!)
+    for(j=0;j<N;j++){
+        J = j+1;
+        for(i=0;i<N;i++){
+            I = i+1;
+            //compute d_ij
+            d = 0;
+            for(m=0;m<N;m++){
+                d += weights[m]*derivation[i*N+m]*derivation[j*N+m];
+            }
+        }
+    }
+    
+    
+    free(M);
+}
+
+/** Uses LAPACK to diagonalize L
+ *
+ *
+ */
+void fine_diagonalize_L(){
+    //1. dgeev
+    //2. dgetrf
+    //3. dgetri
+    //4. Verify
+}
+
+
+/** TEST LAPACK **/
+void test_lapack(){
+    int i,j;
+    int n = 3;
+    double A[9];
+    /*for(j=0;j<n;j++){
+        for(i=0;i<n;i++){
+            A[n*j+i] = (i==j);
+        }
+    }
+    A[4] = 2.0;A[3] = 1.0;A[1] = 2.0;*/
+    double xsi[3] = {-1,0,1};
+    derivation_matrix(xsi,A,2);
+    
+    
+    //PRINTING A
+    printf("THIS IS A\n");
+    for(i=0;i<3;i++){
+        for(j=0;j<n;j++){
+            printf("%f ",A[j*n+i]);
+        }
+        printf("\n");
+    }
+    
+    char *ok = "V";
+    double wr[3],wi[3],vl[9],vr[9],work[50];
+    int lwork = 50, info,ipiv[3];
+    
+    dgeev_(ok, ok, &n, A,
+               &n, wr, wi, vl, &n,
+               vr, &n, work, &lwork, &info);
+    
+    //EIGENVALUES
+    printf("EIGENVALUES\n");
+    for(i=0;i<n;i++){
+        printf("%f and %f\n",wr[i],wi[i]);
+    }
+    //EIGENVECTORS
+    printf("EIGENVECTORS RIGHT\n");
+    for(i=0;i<n;i++){
+        for(j=0;j<n;j++){
+            printf("%f ",vr[j*n+i]);
+        }
+        printf("\n");
+    }
+    printf("EIGENVECTORS LEFT\n");
+    for(i=0;i<n;i++){
+        for(j=0;j<n;j++){
+            printf("%f ",vl[j*n+i]);
+        }
+        printf("\n");
+    }
+    
+    //THE INVERSE
+    dgetrf_(&n,&n,vr,&n,ipiv,&info);
+    dgetri_(&n,vr,&n,ipiv,work,&lwork,&info);
+    printf("INVERSE\n");
+    for(i=0;i<n;i++){
+        for(j=0;j<n;j++){
+            printf("%f ",vr[j*n+i]);
+        }
+        printf("\n");
+    }
+
+}
+
 
 
 

@@ -165,5 +165,10 @@ int main(int argc, const char * argv[]) {
     p4est_connectivity_destroy(conn);
     
     
+    
+    //TEST LAPACK
+    test_lapack();
+    
+    
     return 0;
 }
