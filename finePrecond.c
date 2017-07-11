@@ -363,6 +363,240 @@ void fine_diagonalize_L(double *L, double *V, double *V_inv, double *lambda,int 
 }
 
 
+/** Compute the two_to_one and one_to_two interpolation needed when we have hanging nodes
+ *
+ * \param[in] gll_points            The GLL points in 1D
+ * \param[in] degree                The degree of the interpolation
+ * \param[out] one_to_two           Used when we are hanging
+ * \param[out] two_to_one           Used when the neighbor is hanging
+ * NOTE : the matrices are row major !!!
+ */
+void fine_build_projections(double *gll_points, int degree, double *one_to_two, double *two_to_one){
+    int i,j,k;
+    double xsi,eta,phi_eta;
+    int N = degree+1;
+    int vnodes = N*N;
+    
+    /* ONE_TO_TWO */
+    //we fill the first half of one_to_two
+    eta = 0.5*(gll_points[1]-1);
+    for(k=0;k<N;k++){
+        xsi = 0.5*gll_points[k]-0.5;
+        for(j=0;j<N;j++){
+            phi_eta = phi(gll_points,degree,j,eta);
+            for(i=0;i<N;i++){
+                one_to_two[k*vnodes+j*N+i] = phi_eta*phi(gll_points,degree,i,xsi);
+            }
+        }
+    }
+    //we fill the second half of one_to_two
+    for(k=0;k<N;k++){
+        xsi = 0.5*gll_points[k]+0.5;
+        for(j=0;j<N;j++){
+            phi_eta = phi(gll_points,degree,j,eta);
+            for(i=0;i<N;i++){
+                one_to_two[(k+N)*vnodes+j*N+i] = phi_eta*phi(gll_points,degree,i,xsi);
+            }
+        }
+    }
+    
+    /* TWO_TO_ONE */
+    eta = -1 + 2*(gll_points[1]+1);
+    for(k=0;k<N;k++){
+        if(gll_points[k]<0){
+            xsi = 2*gll_points[k]+1;
+        }
+        else{
+            xsi = 2*gll_points[k]-1;
+        }
+        for(j=0;j<N;j++){
+            phi_eta = phi(gll_points,degree,j,eta);
+            for(i=0;i<N;i++){
+                two_to_one[k*vnodes+j*N+i] = phi_eta*phi(gll_points,degree,i,xsi);
+            }
+        }
+    }
+}
+
+/** Computes the fine scale correction and update the residual
+ *
+ * \param[in] p4est                 The forest is not changed
+ * \param[in] lnodes                The node nubering is not changed
+ * \param[in] neighbors             The array of neighbors
+ * \param[in] V,V_inv,lambda        Diagonalization of L
+ * \param[in] m                     M matrix as defined in the notes
+ * \param[in] r                     The residual at every node
+ * \param[out] z                    The update at every node
+ */
+void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double *V, double *V_inv, double *lambda, double *m, double *r, double *z){
+    /** This is a multi-step process
+     * 1. Clean z (from previous iter)
+     * 2. For each quad, fill the reduced array r_prime (with bound cond)
+     * 3. For each quad, apply V, V_inv and lambda to get z_small
+     * 4. For each quad, Gather z_small into z
+     * NOTE : every matrix must be column major !!!
+     */
+    
+    //TODO : TAKE INTO ACCOUNT HANGING QUADRANTS !!!
+    
+    int i,j,I,J,neigh,k;
+    int NN = lnodes->num_local_nodes;
+    int degree = lnodes->degree;
+    int N = degree+1;
+    int M = degree+3;
+    int vnodes = lnodes->vnodes;
+    p4est_topidx_t tt;
+    p4est_locidx_t kk,qu,Q;
+    p4est_tree_t *tree;
+    sc_array_t *tquadrants;
+    double *r_prime = malloc(M*M*sizeof(double));
+    double *RV = malloc(M*M*sizeof(double));
+    double *VRV = malloc(M*M*sizeof(double));
+    double *W = malloc(M*M*sizeof(double));
+    double *Wv = malloc(M*M*sizeof(double));
+    double *z_small = malloc(M*M*sizeof(double));
+    double hx,hy;
+    
+    
+    // Step 1 : clean z
+    for(i=0;i<NN;i++){
+        z[i] = 0;
+    }
+    
+    /* Go through the quadrants */
+    for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        for(qu = 0; qu<Q ; qu++,kk++){
+            //Compute hx and hy
+            //TODO
+            
+            // Step 2 : fill the reduced array r_prime (column major!)
+            for(j=0;j<N;j++){
+                J = j+1;
+                for(i=0;i<N;i++){
+                    I = i+1;
+                    r_prime[J*M+I] = 4*r[lnodes->element_nodes[kk*vnodes+j*N+i]]/(hx*hy*m[I]*m[J]);
+                }
+            }
+            //left face
+            neigh = neighbors[8*kk];
+            if(neigh>=0){
+                for(J=1;J<=N;J++){
+                    r_prime[J*M] = 4*r[lnodes->element_nodes[neigh*vnodes+(J-1)*N+degree]]/(hx*hy*m[0]*m[J]);
+                }
+            }
+            else{
+                for(J=1;J<=N;J++){
+                    r_prime[J*M] = 4*(2*r[lnodes->element_nodes[kk*vnodes+(J-1)*N]]-r[lnodes->element_nodes[kk*vnodes+(J-1)*N+1]])/(hx*hy*m[0]*m[J]);
+                }
+            }
+            //right face
+            neigh = neighbors[8*kk+2];
+            if(neigh>=0){
+                for(J=1;J<=N;J++){
+                    r_prime[J*M+M-1] = 4*r[lnodes->element_nodes[neigh*vnodes+(J-1)*N]]/(hx*hy*m[M-1]*m[J]);
+                }
+            }
+            else{
+                for(J=1;J<=N;J++){
+                    r_prime[J*M+M-1] = 4*(2*r[lnodes->element_nodes[kk*vnodes+(J-1)*N+degree]]-r[lnodes->element_nodes[kk*vnodes+(J-1)*N+degree-1]])/(hx*hy*m[M-1]*m[J]);
+                }
+            }
+            //bottom face
+            neigh = neighbors[8*kk+4];
+            if(neigh>=0){
+                for(I=1;I<=N;I++){
+                    r_prime[I] = 4*r[lnodes->element_nodes[neigh*vnodes+degree*N+(I-1)]]/(hx*hy*m[I]*m[0]);
+                }
+            }
+            else{
+                for(I=1;I<=N;I++){
+                    r_prime[I] = 4*(2*r[lnodes->element_nodes[kk*vnodes+I-1]]-r[lnodes->element_nodes[kk*vnodes+N+I-1]])/(hx*hy*m[I]*m[0]);
+                }
+            }
+            //top face
+            neigh = neighbors[8*kk+6];
+            if(neigh>=0){
+                for(I=1;I<=N;I++){
+                    r_prime[(M-1)*M+I] = 4*r[lnodes->element_nodes[neigh*vnodes+I-1]]/(hx*hy*m[I]*m[M-1]);
+                }
+            }
+            else{
+                for(I=1;I<=N;I++){
+                    r_prime[(M-1)*M+I] = 4*(2*r[lnodes->element_nodes[kk*vnodes+degree*N+I-1]]-r[lnodes->element_nodes[kk*vnodes+(degree-1)*N+I-1]])/(hx*hy*m[I]*m[M-1]);
+                }
+            }
+            //four corners
+            r_prime[0] = 0;
+            r_prime[M-1] = 0;
+            r_prime[(M-1)*M] = 0;
+            r_prime[M*M-1] = 0;
+            
+            // Step 3 : apply V, V_inv and lambda to get z_small
+            double val;
+            //RV = r_prime * V
+            for(J=0;J<M;J++){
+                for(I=0;I<M;I++){
+                    val = 0;
+                    for(k=0;k<M;k++){
+                        val += r_prime[k*M+I]*V[J*M+k];
+                    }
+                    RV[J*M+I] = val;
+                }
+            }
+            //VRV = V' * RV
+            for(J=0;J<M;J++){
+                for(I=0;I<M;I++){
+                    val = 0;
+                    for(k=0;k<M;k++){
+                        val += V[I*M+k]*RV[J*M+k];
+                    }
+                    VRV[J*M+I] = val;
+                }
+            }
+            //W = L .* VRV
+            for(J=0;J<M;J++){
+                for(I=0;I<M;I++){
+                    W[J*M+I] = VRV[J*M+I]/(4*(lambda[I]/(hx*hx)+lambda[J]/(hy*hy)));
+                }
+            }
+            //Wv =  W * V_inv'
+            for(J=0;J<M;J++){
+                for(I=0;I<M;I++){
+                    val = 0;
+                    for(k=0;k<M;k++){
+                        val += W[k*M+I]*V_inv[k*M+J];
+                    }
+                    Wv[J*M+I] = val;
+                }
+            }
+            //z_small = V_inv * Wv
+            for(J=0;J<M;J++){
+                for(I=0;I<M;I++){
+                    val = 0;
+                    for(k=0;k<M;k++){
+                        val += V_inv[k*M+I]*Wv[J*M+k];
+                    }
+                    z_small[J*M+I] = val;
+                }
+            }
+            
+            // Step 4 : gather z_small into z
+        }
+    }
+    
+    
+    free(r_prime);
+    free(RV);
+    free(VRV);
+    free(W);
+    free(Wv);
+    free(z_small);
+}
+
+
 /** TEST LAPACK **/
 void test_lapack(){
     int i,j;

@@ -150,6 +150,13 @@ int main(int argc, const char * argv[]) {
     free(V_inv);
     free(lambda);
     
+    /** TEST PROJECTIONS **/
+    double *one_to_two = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
+    double *two_to_one = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
+    fine_build_projections(gll_P, degree, one_to_two, two_to_one);
+    free(one_to_two);
+    free(two_to_one);
+    
     /** TEST NEIGHBORS **/
     /*int nElem = total_num_quad(p4est);
     int *neighbors = malloc(8*nElem*sizeof(int));
