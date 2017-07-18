@@ -82,7 +82,7 @@ int main(int argc, const char * argv[]) {
     p4est_ghost_t      *ghost;
     p4est_lnodes_t     *lnodes_1, *lnodes_P;
     const char *outputfile = "out/semMesh";
-    const char *inputfile = "mesh/fourSquare.inp";
+    const char *inputfile = "mesh/fourSquareTurn.inp";
     int i,j;
     
     /** BASIC CONSTANTS **/
@@ -153,21 +153,30 @@ int main(int argc, const char * argv[]) {
     /** TEST PROJECTIONS **/
     double *one_to_two = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
     double *two_to_one = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
-    fine_build_projections(gll_P, degree, one_to_two, two_to_one);
+    double *edge_proj = malloc((degree+1)*2*(degree+1)*sizeof(double));
+    fine_build_projections(gll_P, degree, one_to_two, two_to_one,edge_proj);
     free(one_to_two);
     free(two_to_one);
+    free(edge_proj);
     
     /** TEST NEIGHBORS **/
-    /*int nElem = total_num_quad(p4est);
-    int *neighbors = malloc(8*nElem*sizeof(int));
+    int nElem = total_num_quad(p4est);
+    int *neighbors = malloc(12*nElem*sizeof(int));
     neighbors_build(p4est,lnodes_P,nElem,neighbors);
     for(i=0;i<nElem;i++){
-        for(j=0;j<8;j++){
-            printf("%d ",neighbors[8*i+j]);
+        printf("%d :   ",i);
+        for(j=0;j<12;j++){
+            printf("%d ",neighbors[12*i+j]);
+            if((j+1)%3==0){
+                printf("               ");
+            }
         }
         printf("\n");
     }
-    free(neighbors);*/
+    free(neighbors);
+    
+    
+    printf("ofjrsovsoj : %d\n",5/2);
     
     
     //free
