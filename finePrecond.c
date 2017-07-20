@@ -1316,7 +1316,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                         r_hanging_second[i] = val_second;
                     }
                 }
-                //use two_to_one to get the tom overlap (we have two parts!!!)
+                //use two_to_one to get the top overlap (we have two parts!!!)
                 for(j=0;j<(N/2);j++){
                     val = 0;
                     for(k=0;k<vnodes;k++){
@@ -1567,14 +1567,696 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
             }
             else if(neigh2>=0 && neigh1!=neigh2){ //our neighbors are hanging
-                
+                dispo = neighbors[12*kk+2];
+                if(hanging_edge[4*neigh1+dispo]==1){
+                    first = neigh1;
+                    second = neigh2;
+                }
+                else{
+                    first = neigh2;
+                    second = neigh1;
+                }
+                if(dispo==0){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+degree]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+degree]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+degree*N+degree-j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(k+1)*M];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+degree*N+degree-j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[(k+1)*M];
+                            }
+                        }
+                    }
+                }
             }
-            
-            
-            
-            
-            
-            //END OF EVERYTHING!!!
+            //spread RIGHT OVERLAP
+            neigh1 = neighbors[12*kk+3];
+            neigh2 = neighbors[12*kk+4];
+            if(neigh2==-1 && neigh1>=0){ //we have a regular neighbor
+                dispo = neighbors[12*kk+5];
+                if(dispo==0){
+                    for(j=0;j<N;j++){
+                        z[lnodes->element_nodes[neigh1*vnodes+j*N+1]] += z_small[(j+1)*M+N+1];
+                    }
+                }
+                else if(dispo==1){
+                    for(j=0;j<N;j++){
+                        z[lnodes->element_nodes[neigh1*vnodes+(degree-j)*N+degree-1]] += z_small[(j+1)*M+N+1];
+                    }
+                }
+                else if(dispo==2){
+                    for(j=0;j<N;j++){
+                        z[lnodes->element_nodes[neigh1*vnodes+N+degree-j]] += z_small[(j+1)*M+N+1];
+                    }
+                }
+                else{
+                    for(j=0;j<N;j++){
+                        z[lnodes->element_nodes[neigh1*vnodes+(degree-1)*N+j]] += z_small[(j+1)*M+N+1];
+                    }
+                }
+            }
+            else if(neigh2>=0 && neigh1==neigh2){ //we are hanging
+                dispo = neighbors[12*kk+5];
+                part = hanging_edge[4*kk+1]-1;
+                if(dispo==0){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+(degree-i)*N+j]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+i*N+(degree-j)]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+j*N+i]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+(degree-j)*N+(degree-i)]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+            }
+            else if(neigh2>=0 && neigh1!=neigh2){ //our neighbors are hanging
+                dispo = neighbors[12*kk+5];
+                if(hanging_edge[4*neigh1+dispo]==1){
+                    first = neigh2;
+                    second = neigh1;
+                }
+                else{
+                    first = neigh1;
+                    second = neigh2;
+                }
+                if(dispo==0){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+degree]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+degree]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+degree*N+degree-j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N-k)*M+N+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+degree*N+degree-j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N-k)*M+N+1];
+                            }
+                        }
+                    }
+                }
+            }
+            //spread BOTTOM OVERLAP
+            neigh1 = neighbors[12*kk+6];
+            neigh2 = neighbors[12*kk+7];
+            if(neigh2==-1 && neigh1>=0){ //we have a regular neighbor
+                dispo = neighbors[12*kk+8];
+                if(dispo==0){
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+i*N+1]] += z_small[i+1];
+                    }
+                }
+                else if(dispo==1){
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+(degree-i)*N+degree-1]] += z_small[i+1];
+                    }
+                }
+                else if(dispo==2){
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+N+degree-i]] += z_small[i+1];
+                    }
+                }
+                else{
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+(degree-1)*N+i]] += z_small[i+1];
+                    }
+                }
+            }
+            else if(neigh2>=0 && neigh1==neigh2){ //we are hanging
+                dispo = neighbors[12*kk+8];
+                part = hanging_edge[4*kk+2]-1;
+                if(dispo==0){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+(degree-i)*N+j]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+i*N+(degree-j)]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+j*N+i]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+(degree-j)*N+(degree-i)]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+            }
+            else if(neigh2>=0 && neigh1!=neigh2){ //our neighbors are hanging
+                dispo = neighbors[12*kk+8];
+                if(hanging_edge[4*neigh1+dispo]==1){
+                    first = neigh2;
+                    second = neigh1;
+                }
+                else{
+                    first = neigh1;
+                    second = neigh2;
+                }
+                if(dispo==0){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+degree]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+degree]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+degree*N+degree-j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[N-k];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+degree*N+degree-j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[N-k];
+                            }
+                        }
+                    }
+                }
+            }
+            //spread TOP OVERLAP
+            neigh1 = neighbors[12*kk+9];
+            neigh2 = neighbors[12*kk+10];
+            if(neigh2==-1 && neigh1>=0){ //we have a regular neighbor
+                dispo = neighbors[12*kk+11];
+                if(dispo==0){
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+(degree-i)*N+1]] += z_small[(N+1)*M+i+1];
+                    }
+                }
+                else if(dispo==1){
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+i*N+degree-1]] += z_small[(N+1)*M+i+1];
+                    }
+                }
+                else if(dispo==2){
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+N+i]] += z_small[(N+1)*M+i+1];
+                    }
+                }
+                else{
+                    for(i=0;i<N;i++){
+                        z[lnodes->element_nodes[neigh1*vnodes+(degree-1)*N+degree-i]] += z_small[(N+1)*M+i+1];
+                    }
+                }
+            }
+            else if(neigh2>=0 && neigh1==neigh2){ //we are hanging
+                dispo = neighbors[12*kk+11];
+                part = hanging_edge[4*kk+3]-1;
+                if(dispo==0){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+(degree-i)*N+j]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+i*N+(degree-j)]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+j*N+i]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<N;k++){
+                        for(j=0;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[neigh1*vnodes+(degree-j)*N+(degree-i)]] += one_to_two[(k+part*N)*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+            }
+            else if(neigh2>=0 && neigh1!=neigh2){ //our neighbors are hanging
+                dispo = neighbors[12*kk+11];
+                if(hanging_edge[4*neigh1+dispo]==1){
+                    first = neigh1;
+                    second = neigh2;
+                }
+                else{
+                    first = neigh2;
+                    second = neigh1;
+                }
+                if(dispo==0){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==1){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+degree]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+degree]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+                else if(dispo==2){
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+j*N+i]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+                else{
+                    for(k=0;k<(N/2);k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[first*vnodes+degree*N+degree-j]] += edge_proj[i*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                    for(k=(N/2);k<N;k++){
+                        for(i=0;i<N;i++){
+                            val = two_to_one[k*vnodes+i]*z_small[(N+1)*M+k+1];
+                            for(j=0;j<N;j++){
+                                z[lnodes->element_nodes[second*vnodes+degree*N+degree-j]] += edge_proj[(i+N)*N+j]*val;
+                            }
+                        }
+                        for(j=1;j<N;j++){
+                            for(i=0;i<N;i++){
+                                z[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]] += two_to_one[k*vnodes+j*N+i]*z_small[(N+1)*M+k+1];
+                            }
+                        }
+                    }
+                }
+            }
+            //END OF THE SPREAD
         }
     }
     
