@@ -36,7 +36,8 @@ typedef struct {
 } multiStruc;
 
 int compare_int(const void *a,const void *b);
-void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *U1, double *UP);
+void compute_restriction(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_points, double *weights, double *corners_x, double *corners_y, int *hanging, double *mass_matrix, double *correlation_matrix, double *mass_local);
+void linear_prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *U1, double *UP);
 void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes,double *x,double *y, double *rhs, int *boundary, multiStruc *multi);
 void multi_free(multiStruc *multi);
 void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *boundary, double omega, int iter, double *D, double *uStar);

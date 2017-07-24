@@ -22,6 +22,146 @@ int compare_int(const void *a,const void *b){
     return *x - *y;
 }
 
+/** Computes the matrix we need for the retriction
+ *
+ * \param[in] p4est                 The forest is not changed
+ * \param[in] lnodes                The node numbering is not changed
+ * \param[in] gll_points            The Gauss Lobatto Legendre points in 1D
+ * \param[in] weights               The weights for the 1D integration
+ * \param[in] corners_x,corners_y   The physical coordinates of the corners for every quadrants
+ * \param[in] hanging               Hanging array as defined in sem.c --> compute_constants
+ * \param[out] mass_matrix          The (global) mass matrix for the global nodes
+ * \param[out] correlation_matrix   The correlation matrix needed to restrict and prolong the residual
+ * \param[out] mass_local           The local mass matrix
+ */
+void compute_restriction(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_points, double *weights, double *corners_x, double *corners_y, int *hanging, double *mass_matrix, double *correlation_matrix, double *mass_local){
+    int i,j;
+    int degree = lnodes->degree;
+    int N = degree+1;
+    int vnodes = lnodes->vnodes;
+    int nP = lnodes->num_local_nodes;
+    p4est_topidx_t tt;
+    p4est_locidx_t kk,qu,Q,lni;
+    p4est_tree_t *tree;
+    p4est_quadrant_t *quad;
+    sc_array_t *tquadrants;
+    
+    int hanging_corner[4];
+    int *hang_loc;
+    double jac;
+    
+    //let us clean the mass_matrix
+    for(i=0;i<nP;i++){
+        mass_matrix[i] = 0;
+    }
+    
+    //Loop over the quadtrees to compute the mass_matrix
+    for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        //Loop over the quadrants
+        for(qu = 0; qu<Q; qu++,kk++){
+            //fill the interior (never hanging!)
+            for(j=1;j<degree;j++){
+                for(i=1;i<degree;i++){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[j]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+j*N+i]] += weights[i]*weights[j]*jac;
+                }
+            }
+            //fill the edges (look at hanging!)
+            hang_loc = &hanging[4*kk];
+            if(hang_loc[0]==0){
+                for(j=1;j<degree;j++){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[j]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+j*N]] += weights[0]*weights[j]*jac;
+                }
+            }
+            if(hang_loc[1]==0){
+                for(j=1;j<degree;j++){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[j]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+j*N+degree]] += weights[degree]*weights[j]*jac;
+                }
+            }
+            if(hang_loc[2]==0){
+                for(i=1;i<degree;i++){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[0]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+i]] += weights[i]*weights[0]*jac;
+                }
+            }
+            if(hang_loc[3]==0){
+                for(i=1;i<degree;i++){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[degree]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N+i]] += weights[i]*weights[degree]*jac;
+                }
+            }
+            //fill the corners
+            if(lnodes->face_code[kk]){
+                quad_decode(lnodes->face_code[kk],hanging_corner);
+                if(hanging_corner[0]<0){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[0]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk]] += weights[0]*weights[0]*jac;
+                }
+                if(hanging_corner[1]<0){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[0]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+degree]] += weights[degree]*weights[0]*jac;
+                }
+                if(hanging_corner[2]<0){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[degree]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N]] += weights[0]*weights[degree]*jac;
+                }
+                if(hanging_corner[3]<0){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[degree]);
+                    mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N+degree]] += weights[degree]*weights[degree]*jac;
+                }
+            }
+            else{
+                jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[0]);
+                mass_matrix[lnodes->element_nodes[vnodes*kk]] += weights[0]*weights[0]*jac;
+                jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[0]);
+                mass_matrix[lnodes->element_nodes[vnodes*kk+degree]] += weights[degree]*weights[0]*jac;
+                jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[degree]);
+                mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N]] += weights[0]*weights[degree]*jac;
+                jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[degree]);
+                mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N+degree]] += weights[degree]*weights[degree]*jac;
+            }
+            //fill the mass_local
+            for(j=0;j<N;j++){
+                for(i=0;i<N;i++){
+                    jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[j]);
+                    mass_local[kk*vnodes+j*N+i] = weights[i]*weights[j]*jac;
+                }
+            }
+        }
+    }
+    
+    //Compute the correlation matrix
+    //first line : phi_0 * phi_0
+    for(j=0;j<N;j++){
+        for(i=0;i<N;i++){
+            correlation_matrix[j*N+i] = 0.5*(1-gll_points[i])*0.5*(1-gll_points[j]);
+        }
+    }
+    //second line : phi_1 * phi_0
+    for(j=0;j<N;j++){
+        for(i=0;i<N;i++){
+            correlation_matrix[vnodes+j*N+i] = 0.5*(1+gll_points[i])*0.5*(1-gll_points[j]);
+        }
+    }
+    //third line : phi_0 * phi_1
+    for(j=0;j<N;j++){
+        for(i=0;i<N;i++){
+            correlation_matrix[2*vnodes+j*N+i] = 0.5*(1-gll_points[i])*0.5*(1+gll_points[j]);
+        }
+    }
+    //fourth line : phi_1 * phi_1
+    for(j=0;j<N;j++){
+        for(i=0;i<N;i++){
+            correlation_matrix[3*vnodes+j*N+i] = 0.5*(1+gll_points[i])*0.5*(1+gll_points[j]);
+        }
+    }
+}
+
 /** Interpolate the solution for p=1 onto the same mesh for higher p
  *
  * \param [in] p4est            The forest is not changed - same for both nodes layers
@@ -32,7 +172,7 @@ int compare_int(const void *a,const void *b){
  * \param [in] U1               Solution for p = 1
  * \param [out] UP              Solution for higher p
  */
-void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *U1, double *UP){
+void linear_prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *U1, double *UP){
     int i,j;
     int degree = lnodesP->degree;
     int N = degree+1;
@@ -93,13 +233,345 @@ void prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lno
             }
         }
     }
-    
-    
-    
     free(visited);
 }
 
+/** Restrict the residual for higher p onto the same mesh for p=1 (using the mass and correlation matrix)
+ *
+ * \param [in] p4est                The forest is not changed - same for both nodes layers
+ * \param [in] lnodes1              The node numbering for p=1
+ * \param [in] lnodesP              The node numbering for higher p
+ * \param [in] gll_points           The Gauss-Lobatto-Legendre points for higher p
+ * \param [in] hanging              Array as defined in sem.c --> compute_constant
+ * \param [in] mass_matrix          The (gloabal) mass matrix for higher p
+ * \param [in] correlation_matrix   The correlation matrix needded to restrict the residual
+ * \param [in] mass_local           The local mass matrix
+ * \param [in] edge_proj            The projection for hanging nodes
+ * \param [out] R1                  Residual for p = 1
+ * \param [in] RP                   Residual for higher p
+ */
+void restriction_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *mass_matrix, double *correlation_matrix, double *mass_local, double *edge_proj, double *R1, double *RP){
+    /** This is a multi-step process
+     * 1. Scale RP by the inverted mass matrix
+     * 2. Scatter the scaled results (using hanging relations if needed)
+     * 3. Use B to get the local coarse residual
+     * 4. Gather to form the global coarse residual (nothing to do if node is hanging)
+     */
+    int i,j,k;
+    const int degree = lnodesP->degree;
+    const int N = degree+1;
+    const int vnodes = lnodesP->vnodes;
+    const int nP = lnodesP->num_local_nodes;
+    const int n1 = lnodes1->num_local_nodes;
+    p4est_topidx_t tt;
+    p4est_locidx_t kk,qu,Q,lni;
+    p4est_tree_t *tree;
+    p4est_quadrant_t *quad;
+    sc_array_t *tquadrants;
+    
+    double R_loc[4];
+    double val;
+    double *y_loc = malloc(vnodes*sizeof(double));
+    int *hang_loc;
+    int hanging_corner[4];
+    
+    //Clean R1
+    for(i=0;i<n1;i++){
+        R1[i] = 0.0;
+    }
+    double *Y = malloc(nP*sizeof(double));
+    /* Step 1 : Scale RP by the inverted mass matrix */
+    for(i=0;i<nP;i++){
+        Y[i] = RP[i]/mass_matrix[i];
+    }
+    
+    //Loop over the quadtrees
+    for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        //Loop over the quadrants
+        for(qu = 0; qu<Q; qu++,kk++){
+            /* Step 2 : Scatter the scaled results (using hanging relations if needed) */
+            for(j=1;j<degree;j++){
+                for(i=1;i<degree;i++){
+                    y_loc[j*N+i] = Y[lnodesP->element_nodes[kk*vnodes+j*N+i]];
+                }
+            }
+            y_loc[0] = Y[lnodesP->element_nodes[kk*vnodes]];
+            y_loc[degree] = Y[lnodesP->element_nodes[kk*vnodes+degree]];
+            y_loc[degree*N] = Y[lnodesP->element_nodes[kk*vnodes+degree*N]];
+            y_loc[degree*N+degree] = Y[lnodesP->element_nodes[kk*vnodes+degree*N+degree]];
+            
+            hang_loc = &hanging[4*kk];
+            //left edge
+            if(hang_loc[0]==0){
+                for(j=1;j<degree;j++){
+                    y_loc[j*N] = Y[lnodesP->element_nodes[kk*vnodes+j*N]];
+                }
+            }
+            else if(hang_loc[0]==1){
+                for(j=0;j<N;j++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[j*N+k]*Y[lnodesP->element_nodes[kk*vnodes+k*N]];
+                    }
+                    y_loc[j*N] = val;
+                }
+            }
+            else{
+                for(j=0;j<N;j++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[(j+N)*N+k]*Y[lnodesP->element_nodes[kk*vnodes+k*N]];
+                    }
+                    y_loc[j*N] = val;
+                }
+            }
+            //right edge
+            if(hang_loc[1]==0){
+                for(j=1;j<degree;j++){
+                    y_loc[j*N+degree] = Y[lnodesP->element_nodes[kk*vnodes+j*N+degree]];
+                }
+            }
+            else if(hang_loc[1]==1){
+                for(j=0;j<N;j++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[j*N+k]*Y[lnodesP->element_nodes[kk*vnodes+k*N+degree]];
+                    }
+                    y_loc[j*N+degree] = val;
+                }
+            }
+            else{
+                for(j=0;j<N;j++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[(j+N)*N+k]*Y[lnodesP->element_nodes[kk*vnodes+k*N+degree]];
+                    }
+                    y_loc[j*N+degree] = val;
+                }
+            }
+            //bottom edge
+            if(hang_loc[2]==0){
+                for(i=1;i<degree;i++){
+                    y_loc[i] = Y[lnodesP->element_nodes[kk*vnodes+i]];
+                }
+            }
+            else if(hang_loc[2]==1){
+                for(i=0;i<N;i++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[i*N+k]*Y[lnodesP->element_nodes[kk*vnodes+k]];
+                    }
+                    y_loc[i] = val;
+                }
+            }
+            else{
+                for(i=0;i<N;i++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[(i+N)*N+k]*Y[lnodesP->element_nodes[kk*vnodes+k]];
+                    }
+                    y_loc[i] = val;
+                }
+            }
+            //top edge
+            if(hang_loc[3]==0){
+                for(i=1;i<degree;i++){
+                    y_loc[degree*N+i] = Y[lnodesP->element_nodes[kk*vnodes+degree*N+i]];
+                }
+            }
+            else if(hang_loc[3]==1){
+                for(i=0;i<N;i++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[i*N+k]*Y[lnodesP->element_nodes[kk*vnodes+degree*N+k]];
+                    }
+                    y_loc[degree*N+i] = val;
+                }
+            }
+            else{
+                for(i=0;i<N;i++){
+                    val = 0;
+                    for(k=0;k<N;k++){
+                        val += edge_proj[(i+N)*N+k]*Y[lnodesP->element_nodes[kk*vnodes+degree*N+k]];
+                    }
+                    y_loc[i] = val;
+                }
+            }
+            /* Step 3 : use B to get the local coarse residual */
+            //dot multiply by mass_local
+            for(i=0;i<vnodes;i++){
+                y_loc[i] *= mass_local[kk*vnodes+i];
+            }
+            //compute R_loc
+            for(j=0;j<4;j++){
+                R_loc[j] = 0;
+                for(i=0;i<vnodes;i++){
+                    R_loc[j] += correlation_matrix[j*vnodes+i]*y_loc[i];
+                }
+            }
+            /* Step 4 : gather to form the global coarse residual */
+            if(lnodes1->face_code[kk]){
+                quad_decode(lnodes1->face_code[kk],hanging_corner);
+                for(i=0;i<4;i++){
+                    if(hanging_corner[i]<0){
+                        R1[lnodes1->element_nodes[4*kk+i]] += R_loc[i];
+                    }
+                }
+            }
+            else{
+                for(i=0;i<4;i++){
+                    R1[lnodes1->element_nodes[4*kk+i]] += R_loc[i];
+                }
+            }
+            
+        }
+    }
+    free(Y);
+    free(y_loc);
+}
 
+/** Prolong the residual for p=1 onto the same mesh for higher p (using the mass and correlation matrix)
+ *
+ * \param [in] p4est                The forest is not changed - same for both nodes layers
+ * \param [in] lnodes1              The node numbering for p=1
+ * \param [in] lnodesP              The node numbering for higher p
+ * \param [in] gll_points           The Gauss-Lobatto-Legendre points for higher p
+ * \param [in] hanging              Array as defined in sem.c --> compute_constant
+ * \param [in] mass_matrix          The (gloabal) mass matrix for higher p
+ * \param [in] correlation_matrix   The correlation matrix needded to restrict the residual
+ * \param [in] mass_local           The local mass matrix
+ * \param [in] R1                   Residual for p = 1
+ * \param [out] RP                  Residual for higher p
+ */
+void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *mass_matrix, double *correlation_matrix, double *mass_local, double *edge_proj, double *R1, double *RP){
+    /** This is a multi-step process
+     * 1. Scatter R1 (using hanging relation if needed)
+     * 2. Use B the get the local fine residual
+     * 3. Gather to form the global fine residual
+     * 4. Scale the result by the global mass matrix
+     */
+    int i,j,k;
+    const int degree = lnodesP->degree;
+    const int N = degree+1;
+    const int vnodes = lnodesP->vnodes;
+    const int nP = lnodesP->num_local_nodes;
+    const int n1 = lnodes1->num_local_nodes;
+    p4est_topidx_t tt;
+    p4est_locidx_t kk,qu,Q,lni;
+    p4est_tree_t *tree;
+    p4est_quadrant_t *quad;
+    sc_array_t *tquadrants;
+    
+    int hanging_corner[4];
+    int R_loc[4];
+    double *z_loc = malloc(vnodes*sizeof(double));
+    int *hang;
+    
+    //Clean RP
+    for(i=0;i<nP;i++){
+        RP[i] = 0.0;
+    }
+    
+    //Loop over the quadtrees
+    for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        //Loop over the quadrants
+        for(qu = 0; qu<Q; qu++,kk++){
+            /* Step 1 : Scatter R1 (using hanging relation if needed) */
+            if(lnodes1->face_code[kk]){
+                quad_decode(lnodes1->face_code[kk],hanging_corner);
+                for(i=0;i<4;i++){
+                    if(hanging_corner[i]<0){
+                        R_loc[i] = R1[lnodes1->element_nodes[kk*vnodes+i]];
+                    }
+                    else{
+                        R_loc[i] = 0.5*(R1[lnodes1->element_nodes[kk*vnodes+i]] + R1[lnodes1->element_nodes[kk*vnodes+hanging_corner[i]]]);
+                    }
+                }
+            }
+            else{
+                for(i=0;i<4;i++){
+                    R_loc[i] = R1[lnodes1->element_nodes[kk*vnodes+i]];
+                }
+            }
+            /* Step 2 : Use B to get the local fine residual */
+            for(i=0;i<vnodes;i++){
+                z_loc[i] = 0;
+                for(j=0;j<4;j++){
+                    z_loc[i] += correlation_matrix[j*vnodes+i]*R_loc[j];
+                }
+            }
+            for(i=0;i<vnodes;i++){
+                z_loc[i] *= mass_local[kk*vnodes+i];
+            }
+            /* Step 3 : Gather to form the global fine residual */
+            hang = &hanging[4*kk];
+            //fill the interior
+            for(j=1;j<degree;j++){
+                for(i=1;i<degree;i++){
+                    RP[lnodesP->element_nodes[kk*vnodes+j*N+i]] += z_loc[j*N+i];
+                }
+            }
+            //fill left
+            if(!hang[0]){
+                for(j=1;j<degree;j++){
+                    RP[lnodesP->element_nodes[kk*vnodes+j*N]] += z_loc[j*N];
+                }
+            }
+            //fill right
+            if(!hang[1]){
+                for(j=1;j<degree;j++){
+                    RP[lnodesP->element_nodes[kk*vnodes+j*N+degree]] += z_loc[j*N+degree];
+                }
+            }
+            //fill bottom
+            if(!hang[2]){
+                for(i=1;i<degree;i++){
+                    RP[lnodesP->element_nodes[kk*vnodes+i]] += z_loc[i];
+                }
+            }
+            //fill top
+            if(!hang[3]){
+                for(i=1;i<degree;i++){
+                    RP[lnodesP->element_nodes[kk*vnodes+degree*N+i]] += z_loc[degree*N+i];
+                }
+            }
+            //corners
+            if(lnodesP->face_code[kk]){
+                quad_decode(lnodesP->face_code[kk],hanging_corner);
+                if(hanging_corner[0]<0){
+                    RP[lnodesP->element_nodes[kk*vnodes]] += z_loc[0];
+                }
+                if(hanging_corner[1]<0){
+                    RP[lnodesP->element_nodes[kk*vnodes+degree]] += z_loc[degree];
+                }
+                if(hanging_corner[2]<0){
+                    RP[lnodesP->element_nodes[kk*vnodes+degree*N]] += z_loc[degree*N];
+                }
+                if(hanging_corner[3]<0){
+                    RP[lnodesP->element_nodes[kk*vnodes+degree*N+degree]] += z_loc[degree*N+degree];
+                }
+            }
+            else{
+                RP[lnodesP->element_nodes[kk*vnodes]] += z_loc[0];
+                RP[lnodesP->element_nodes[kk*vnodes+degree]] += z_loc[degree];
+                RP[lnodesP->element_nodes[kk*vnodes+degree*N]] += z_loc[degree*N];
+                RP[lnodesP->element_nodes[kk*vnodes+degree*N+degree]] += z_loc[degree*N+degree];
+            }
+        }
+        
+        /* Step 4 : Scale the result by the global mass matrix */
+        for(i=0;i<nP;i++){
+            RP[i] /= mass_matrix[i];
+        }
+    }
+    free(z_loc);
+}
 
 /** Creates and allocates the data structures that allows for the multigrid method
  *

@@ -160,7 +160,7 @@ int main(int argc, const char * argv[]) {
     free(edge_proj);
     
     /** TEST NEIGHBORS **/
-    int nElem = total_num_quad(p4est);
+    /*int nElem = total_num_quad(p4est);
     int *neighbors = malloc(12*nElem*sizeof(int));
     neighbors_build(p4est,lnodes_P,nElem,neighbors);
     for(i=0;i<nElem;i++){
@@ -173,10 +173,48 @@ int main(int argc, const char * argv[]) {
         }
         printf("\n");
     }
-    free(neighbors);
+    free(neighbors);*/
     
-    
-    printf("ofjrsovsoj : %d\n",5/2);
+    /** TEST RESTRICTIONS **/
+    int Q = p4est->local_num_quadrants;
+    int NN_P = lnodes_P->num_local_nodes;
+    int vnodes = (degree+1)*(degree+1);
+    //we compute the corners
+    double *corners_x = malloc(4*Q*sizeof(double));
+    double *corners_y = malloc(4*Q*sizeof(double));
+    compute_corners(p4est, corners_x, corners_y);
+    //we compute the constants
+    int *hanging = calloc(4*Q,sizeof(int));
+    double *Wee = malloc(Q*vnodes*sizeof(double));
+    double *Wen = malloc(Q*vnodes*sizeof(double));
+    double *Wnn = malloc(Q*vnodes*sizeof(double));
+    compute_constant(p4est, lnodes_P, corners_x, corners_y, gll_P, weights_P, Wee, Wen, Wnn, hanging);
+    //we compute the restriction matrices
+    double *mass_matrix = malloc(NN_P*sizeof(double));
+    double *correlation_matrix = malloc(4*vnodes*sizeof(double));
+    double *mass_local = malloc(Q*vnodes*sizeof(double));
+    compute_restriction(p4est,lnodes_P,gll_P,weights_P,corners_x,corners_y,hanging,mass_matrix,correlation_matrix,mass_local);
+    printf("CORRELATION MATRIX\n");
+    for(j=0;j<4;j++){
+        for(i=0;i<vnodes;i++){
+            printf("%f ",correlation_matrix[j*vnodes+i]);
+        }
+        printf("\n");
+    }
+    printf("MASS MATRIX\n");
+    for(i=0;i<NN_P;i++){
+        printf("%d : %f\n",i,mass_matrix[i]);
+    }
+    free(corners_x);
+    free(corners_y);
+    free(hanging);
+    free(Wee);
+    free(Wen);
+    free(Wnn);
+    free(mass_matrix);
+    free(correlation_matrix);
+    free(mass_local);
+    //END TEST RESTRICTION
     
     
     //free
