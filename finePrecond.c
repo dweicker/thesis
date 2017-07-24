@@ -153,10 +153,10 @@ int compare_edge(const void *a, const void *b){
  * \param[in] edges                 An unsorted array of edges
  * \param[in] nElem                 The total number of quadrants in the forest
  * \param[out] neighbors            The array of neighbors for each quadrants - 8 entries per quadrants - 2 per edge
- *                                      -1,-1 = boundary 
- *                                       a,-1 = neighbor of a not hanging 
- *                                       b,c = neighbor of b,c hanging 
- *                                       a,a = hanging neighbor of master a
+ *                                      -1,-1,-1 = boundary
+ *                                       a,-1,2 = neighbor of a not hanging and bottom
+ *                                       b,c,1 = neighbor of b,c hanging and right
+ *                                       a,a,0 = hanging neighbor of master a and left
  */
 void neighbors_from_edges(edgeStruc **edges, int nElem, int *neighbors){
     /* This is a two step process
@@ -258,10 +258,10 @@ void neighbors_build(p4est_t *p4est, p4est_lnodes_t *lnodes, int nElem, int *nei
  * \param[in] gll_points        The 1D gll points
  * \param[in] weights           The 1D gauss-lobatto-legendre weights
  * \param[in] degree            The degree of the interpolation
- * \param[in] derivation        The derivation matrix (as defined in geometry.c)
  * \param[out] L                The matrix L (as defined in Remacle's paper)
+ * \param[out] M                The matrix M (as defined in Remacle's paper)
  */
-void fine_build_L(double *gll_points, double *weights, int degree, double *L){
+void fine_build_L(double *gll_points, double *weights, int degree, double *L, double *M){
     //L must be column major (i.e. L[j*N+i] = L_ij)
     //derivation (H) is row major (i.e. H[i*N+j] = H_ij)
     //L has dim (degree+3)*(degree+3)
@@ -272,7 +272,6 @@ void fine_build_L(double *gll_points, double *weights, int degree, double *L){
     
     
     //build M
-    double *M = malloc((N+2)*sizeof(double));
     for(i=0;i<N;i++){
         I = i+1;
         M[I] = weights[i];
@@ -329,7 +328,6 @@ void fine_build_L(double *gll_points, double *weights, int degree, double *L){
         }
     }
     
-    free(M);
     free(derivation);
 }
 
@@ -350,7 +348,7 @@ void fine_diagonalize_L(double *L, double *V, double *V_inv, double *lambda,int 
     double *lambda_i = malloc(size*sizeof(double));
     int *ipiv = malloc(size*sizeof(int));
     
-    //get the eugenvalues and eigenvectors
+    //get the eigenvalues and eigenvectors
     dgeev_("V", "V", &size, L, &size, lambda, lambda_i, vl, &size, V_inv, &size, work, &lwork, &info);
     //copy the info
     for(int j=0;j<size;j++){
@@ -452,8 +450,9 @@ void fine_build_projections(double *gll_points, int degree, double *one_to_two, 
  * \param[in] one_to_two            Projection when we are hanging
  * \param[in] two_to_one            Projection when the neighbors are hanging
  * \param[in] edge_proj             Projection for hanging edges
+ * \param[in] corners_x,corners_y   The physical coordinates for every qaudrants
  */
-void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double *V, double *V_inv, double *lambda, double *m, double *r, double *z, int *hanging_edge, double *one_to_two, double *two_to_one, double *edge_proj){
+void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double *V, double *V_inv, double *lambda, double *m, double *r, double *z, int *hanging_edge, double *one_to_two, double *two_to_one, double *edge_proj, double *corners_x, double *corners_y){
     /** This is a multi-step process
      * 1. Clean z (from previous iter) - facultatif
      * 2. For each quad, fill the reduced array r_prime (with bound cond)
@@ -482,12 +481,15 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
     double *z_small = malloc(M*M*sizeof(double));
     double hx,hy,val,val_second;
     int corners[4];
+    double *quad_x;
+    double *quad_y;
+    
     
     
     /* Step 1 : clean z (facultatif - if we add to the coarse precond, do not do it) */
-    for(i=0;i<NN;i++){
+    /*for(i=0;i<NN;i++){
         z[i] = 0;
-    }
+    }*/
     
     /* Go through the quadrants */
     for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
@@ -496,7 +498,14 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
         Q = (p4est_locidx_t) tquadrants->elem_count;
         for(qu = 0; qu<Q ; qu++,kk++){
             //Compute hx and hy
-            //TODO
+            quad_x = &corners_x[4*kk];
+            quad_y = &corners_y[4*kk];
+            val = 0.25*(quad_x[1]-quad_x[0]+quad_x[3]-quad_x[2]);
+            val_second = 0.25*(quad_x[2]-quad_x[0]+quad_x[3]-quad_x[1]);
+            hx = 2*sqrt(val*val+val_second*val_second);
+            val = 0.25*(quad_y[1]-quad_y[0]+quad_y[3]-quad_y[2]);
+            val_second = 0.25*(quad_y[2]-quad_y[0]+quad_y[3]-quad_y[1]);
+            hy = 2*sqrt(val*val+val_second*val_second);
             
             /* Step 2 : fill the reduced array r_prime (column major!) */
             corners[0] = corners[1] = corners[2] = corners[3] = 0;

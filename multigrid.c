@@ -11,6 +11,7 @@
 #define SMOOTH_FAC 2.0/3.0
 #define N_PRE 3
 #define N_POST 1
+#define MAXITER 100
 
 
 /** Little compare function for integers
@@ -1502,6 +1503,28 @@ void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y,
         }
         multi_prolongation(multi,level-1);
         multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_POST,multi->D,multi->uStar);
+    }
+}
+
+/** Solve the problem given with the multigrid method for a given tolerance
+ *
+ * \param[in] multi         The multigrid structure
+ * \param[in] mu            The number of time we solve (mu=1 is V-cycle and mu=2 is W-cycle)
+ * \param[in] x,y           The coordinates of the global nodes
+ * \param[in] boundary      Boolean flags for the boundary vector
+ * \param[in] tol           The accepted tolerance before we stop
+ */
+void multi_solve_problem(multiStruc *multi, int mu, double *x, double *y, int *boundary, double tol){
+    double err = tol+1;
+    int maxlevel = multi->maxlevel;
+    int *map;
+    for(int iter = 0; err>tol && iter<MAXITER ; iter++){
+        multi_mu_scheme(multi,multi->maxlevel,mu,x,y,boundary);
+        err = 0;
+        map = multi->map_glob[maxlevel-1];
+        for(int i=0;i<multi->nNodes[maxlevel-1];i++){
+            err = fmax(err,fabs(multi->u[maxlevel-1][map[i]]));
+        }
     }
 }
 

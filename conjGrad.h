@@ -15,6 +15,8 @@
 #include <p4est_ghost.h>
 #include <p4est_lnodes.h>
 #include "sem.h"
+#include "multigrid.h"
+#include "finePrecond.h"
 
 double scalar_prod(double *x, double *y, int length);
 void linear_trans(double *x, double *y, double a, int length, double *z);

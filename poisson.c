@@ -143,12 +143,14 @@ int main(int argc, const char * argv[]) {
     double *V = malloc((degree+3)*(degree+3)*sizeof(double));
     double *V_inv = malloc((degree+3)*(degree+3)*sizeof(double));
     double *lambda = malloc((degree+3)*sizeof(double));
-    fine_build_L(gll_P,weights_P,degree,L);
+    double *m = malloc((degree+3)*sizeof(double));
+    fine_build_L(gll_P,weights_P,degree,L,m);
     fine_diagonalize_L(L,V,V_inv,lambda,degree);
     free(L);
     free(V);
     free(V_inv);
     free(lambda);
+    free(m);
     
     /** TEST PROJECTIONS **/
     double *one_to_two = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));

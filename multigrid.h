@@ -50,5 +50,6 @@ void multi_build_coarsest_matrix(multiStruc *multi, int *boundary);
 void multi_free_coarsest_matrix(multiStruc *multi);
 void multi_solve_coarsest(multiStruc *multi);
 void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y, int *boundary);
+void multi_solve_problem(multiStruc *multi, int mu, double *x, double *y, int *boundary, double tol);
 
 #endif /* multigrid_h */

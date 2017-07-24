@@ -146,12 +146,16 @@ void conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_points, doubl
  *\param [in] lnodes1           The node numbering is not changed (p=1)
  *\param [in] gll_points        1D Gauss-Lobatto-Legendre points
  *\param [in] weights           1D weights for GLL integration
- *\param [in] tol               Tolerance on the norm of the residual
+ *\param [in] tol_glob          Tolerance on the norm of the residual
+ *\param [in] tol_multi         Tolerance for the multigrid solver
  *\param [in,out] U             Solution of the linear system (contains initial guess!)
  *\param [out] x,y              Physical coordinates of the different nodes
  *\param [out] u_exact          Exact solution to the Poisson problem (if NULL ==> no exact sol)
  */
-void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *lnodes1, double *gll_points, double *weights, double tol, double *U, double *x, double *y, double *u_exact){
+void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *lnodes1, double *gll_points, double *weights, double tol_glob, double tol_multi, double *U, double *x, double *y, double *u_exact){
+    
+    /* Important constants */
+    int mu = 1;
     
     int n1 = lnodes1->num_local_nodes;
     int nP = lnodesP->num_local_nodes;
@@ -197,28 +201,86 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     double *Wnn_1 = malloc(4*Q*sizeof(double));
     compute_constant(p4est,lnodes1,corners_x,corners_y,gll_1,weights_1,Wee_1,Wen_1,Wnn_1,hanging_1);
     
-    //we compute the derivation matrix and the edge projection
+    //we compute the derivation matrix and all the projections
     double *H = malloc(N*N*sizeof(double));
     double *edge_proj = malloc(2*N*N*sizeof(double));
+    double *one_to_two = malloc(2*N*vnodes*sizeof(double));
+    double *two_to_one = malloc(N*vnodes*sizeof(double));
     derivation_matrix(gll_points, H, degree);
-    general_projection(gll_points, degree, edge_proj);
-    
-    //initialization of the multigrid
+    fine_build_projections(gll_points,degree,one_to_two,two_to_one,edge_proj);
     
     //initialization of the algorithm
-    double err = tol+1;
+    double err = tol_glob+1;
     double *p = malloc(nP*sizeof(double));
     double *r = calloc(nP,sizeof(double));
     double *z = calloc(nP,sizeof(double));
     multiply_matrix(p4est, lnodesP, bc_P, gll_points, H, weights, edge_proj, Wee_P, Wen_P, Wnn_P, hanging_P, U, r);
     linear_trans(b_P,r,-1,nP,r);
-    //here compute z
+    //initialization of the multigrid and compute of the coarse precond
+    multiStruc *multi = malloc(sizeof(multiStruc));
+    double *mass_matrix = malloc(nP*sizeof(double));
+    double *correlation_matrix = malloc(4*vnodes*sizeof(double));
+    double *mass_local = malloc(vnodes*Q*sizeof(double));
+    double *r_restricted = malloc(n1*sizeof(double));
+    compute_restriction(p4est, lnodesP, gll_points, weights, corners_x, corners_y, hanging_P, mass_matrix, correlation_matrix, mass_local);
+    restriction_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+    multi_create_data(p4est, lnodes1, x_1, y_1, r_restricted, bc_1, multi);
+    int maxlevel = multi->maxlevel;
+    multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
+    prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, multi->u[maxlevel], z);
+    //initialization of the fine preconditioner
+    int *neighbors = malloc(12*Q*sizeof(int));
+    double *L = malloc((N+2)*(N+2)*sizeof(double));
+    double *m = malloc((N+2)*sizeof(double));
+    double *V = malloc((N+2)*(N+2)*sizeof(double));
+    double *V_inv = malloc((N+2)*(N+2)*sizeof(double));
+    double *lambda = malloc((N+2)*sizeof(double));
+    neighbors_build(p4est, lnodesP, Q, neighbors);
+    fine_build_L(gll_points, weights, degree, L, m);
+    fine_diagonalize_L(L, V, V_inv, lambda, degree);
+    fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+    //as this time p = z
     for(i=0;i<nP;i++){
         p[i] = z[i];
     }
     double *f = calloc(nP,sizeof(double));
     double alpha;
     double beta;
+    double pf,zr,zrNew;
+    
+    zr = scalar_prod(z,r,nP);
+    for(int iter = 0; err>tol_glob && iter<nP; iter++){
+        //compute f
+        for(i=0;i<nP;i++){
+            f[i] = 0.0;
+        }
+        multiply_matrix(p4est, lnodesP, bc_P, gll_points, H, weights, edge_proj, Wee_P, Wen_P, Wnn_P, hanging_P, p, f);
+        linear_trans(b_P,f,-1,nP,f);
+        //update u and r
+        pf = scalar_prod(p,f,nP);
+        alpha = zr/pf;
+        linear_trans(U,p,alpha,nP,U);
+        linear_trans(r,f,-alpha,nP,r);
+        //compute the new z
+            //coarse precond
+        restriction_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+        for(i=0;i<multi->nNodes[maxlevel];i++){
+            multi->u[maxlevel][i] = 0.0;
+            multi->f[maxlevel][i] = r_restricted[i];
+        }
+        multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
+        prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, multi->u[maxlevel], z);
+            //fine precond
+        fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+        //update p
+        zrNew = scalar_prod(z,r,nP);
+        beta = zrNew/zr;
+        linear_trans(z,p,beta,nP,p);
+        zr = zrNew;
+        
+        //TODO : critere d'arret
+    }
+    
     
     //corners
     free(corners_x);
@@ -247,12 +309,26 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     //derivation matrix and edge projection
     free(H);
     free(edge_proj);
+    free(one_to_two);
+    free(two_to_one);
     //grad conj
     free(p);
     free(r);
     free(z);
     free(f);
-    
+    //multigrid
+    free(mass_matrix);
+    free(correlation_matrix);
+    free(mass_local);
+    multi_free(multi);
+    free(multi);
+    //fine precond
+    free(neighbors);
+    free(L);
+    free(m);
+    free(V);
+    free(V_inv);
+    free(lambda);
 }
 
 

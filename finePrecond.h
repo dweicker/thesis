@@ -33,9 +33,10 @@ void edges_free(edgeStruc **edges, int n);
 int compare_edge(const void *a, const void *b);
 void neighbors_from_edges(edgeStruc **edges, int nElem, int *neighbors);
 void neighbors_build(p4est_t *p4est, p4est_lnodes_t *lnodes, int nElem, int *neighbors);
-void fine_build_L(double *gll_points, double *weights, int degree, double *L);
+void fine_build_L(double *gll_points, double *weights, int degree, double *L, double *M);
 void fine_diagonalize_L(double *L, double *V, double *V_inv, double *lambda,int degree);
 void fine_build_projections(double *gll_points, int degree, double *one_to_two, double *two_to_one, double *edge_proj);
+void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double *V, double *V_inv, double *lambda, double *m, double *r, double *z, int *hanging_edge, double *one_to_two, double *two_to_one, double *edge_proj, double *corners_x, double *corners_y);
 void test_lapack();
 
 
