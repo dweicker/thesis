@@ -579,6 +579,7 @@ void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t
  * \param[in] lnodes            The node numbering is not changed. It is the node numbering of the p=1 grid!
  * \param[in] x,y               The coordinates of the global nodes (for p=1!)
  * \param[in] rhs               The right hand side for the finest level
+ * \param[in] boundary          Boolean flags for the global nodes
  * \param[out] multi            The multi grid structure as defined in multigrid.h
  */
 void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double *y, double *rhs, int *boundary, multiStruc *multi){

@@ -17,6 +17,9 @@
 #include <Accelerate/Accelerate.h>
 #include "p4estFunc.h"
 #include "geometry.h"
+#include "multigrid.h"
+#include "finePrecond.h"
+#include "sem.h"
 
 typedef struct {
     int nodes[2];           //the nodes at the end of the edge (oriented counter-clockwise for the quadrant)
