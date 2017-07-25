@@ -82,7 +82,7 @@ int main(int argc, const char * argv[]) {
     p4est_ghost_t      *ghost;
     p4est_lnodes_t     *lnodes_1, *lnodes_P;
     const char *outputfile = "out/semMesh";
-    const char *inputfile = "mesh/fourSquareTurn.inp";
+    const char *inputfile = "mesh/fourSquare.inp";
     int i,j;
     
     /** BASIC CONSTANTS **/
@@ -99,10 +99,14 @@ int main(int argc, const char * argv[]) {
     
     /** MESH **/
     p4est_refine(p4est,0,refine_true,NULL);
-    //p4est_refine(p4est,0,refine_true,NULL);
-    //p4est_refine(p4est,0,refine_true,NULL);
-    //p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_top_right,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+
+    //p4est_refine(p4est,0,refine_top_right,NULL);
     //p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
@@ -131,15 +135,20 @@ int main(int argc, const char * argv[]) {
     write_matrix(multi->A_coarsest,multi->nNodes[0],matt);
     
     
-    multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+    multi_solve_problem(multi, 1, x_1, y_1, bc_1, 0.000001);
     //multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+    //multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+    //multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+    //multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+    //multi_mu_scheme(multi,multi->maxlevel,1,x_1,y_1,bc_1);
+
     
     for(i=0;i<NN_1;i++){
         printf("%d : %f\n",i,multi->u[multi->maxlevel][i]);
     }
     
     /** TEST FINE **/
-    double *L = malloc((degree+3)*(degree+3)*sizeof(double));
+    /*double *L = malloc((degree+3)*(degree+3)*sizeof(double));
     double *V = malloc((degree+3)*(degree+3)*sizeof(double));
     double *V_inv = malloc((degree+3)*(degree+3)*sizeof(double));
     double *lambda = malloc((degree+3)*sizeof(double));
@@ -150,16 +159,16 @@ int main(int argc, const char * argv[]) {
     free(V);
     free(V_inv);
     free(lambda);
-    free(m);
+    free(m);*/
     
     /** TEST PROJECTIONS **/
-    double *one_to_two = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
+    /*double *one_to_two = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
     double *two_to_one = malloc((degree+1)*(degree+1)*2*(degree+1)*sizeof(double));
     double *edge_proj = malloc((degree+1)*2*(degree+1)*sizeof(double));
     fine_build_projections(gll_P, degree, one_to_two, two_to_one,edge_proj);
     free(one_to_two);
     free(two_to_one);
-    free(edge_proj);
+    free(edge_proj);*/
     
     /** TEST NEIGHBORS **/
     /*int nElem = total_num_quad(p4est);
@@ -178,7 +187,7 @@ int main(int argc, const char * argv[]) {
     free(neighbors);*/
     
     /** TEST RESTRICTIONS **/
-    int Q = p4est->local_num_quadrants;
+    /*int Q = p4est->local_num_quadrants;
     int NN_P = lnodes_P->num_local_nodes;
     int vnodes = (degree+1)*(degree+1);
     //we compute the corners
@@ -215,7 +224,7 @@ int main(int argc, const char * argv[]) {
     free(Wnn);
     free(mass_matrix);
     free(correlation_matrix);
-    free(mass_local);
+    free(mass_local);*/
     //END TEST RESTRICTION
     
     

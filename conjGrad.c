@@ -249,7 +249,8 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     double pf,zr,zrNew;
     
     zr = scalar_prod(z,r,nP);
-    for(int iter = 0; err>tol_glob && iter<nP; iter++){
+    int iter;
+    for(iter = 0; err>tol_glob && iter<nP; iter++){
         //compute f
         for(i=0;i<nP;i++){
             f[i] = 0.0;
@@ -276,11 +277,18 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         zrNew = scalar_prod(z,r,nP);
         beta = zrNew/zr;
         linear_trans(z,p,beta,nP,p);
-        zr = zrNew;
         
         //TODO : critere d'arret
+        zr = zrNew;
+        err = sqrt(zr);
     }
     
+    if(iter==nP){
+        printf("The preconditioned conjugate gradient has not converged after %d iterations.\n",nP);
+    }
+    else{
+        printf("The preconditioned conjugate gradient has converged after %d iterations.\nThe error is %f.\n",iter,err);
+    }
     
     //corners
     free(corners_x);

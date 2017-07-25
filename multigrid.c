@@ -1196,13 +1196,24 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
         else{
             for(j=0;j<2;j++){
                 for(i=0;i<2;i++){
-                    for(m=0;m<2;m++){
+                    for(m=0;m<4;m++){
                         res[quads[4*kk+j*2+i]] -= A_loc[j*2+i][m]*U[m];
                     }
                 }
             }
         }
     }
+    
+    
+    //PRINTF
+    /*printf("U\n");
+    for(i=0;i<nNodes_up;i++){
+        printf("%d : %f\n",map_up[i],multi->u[level][map_up[i]]);
+    }
+    printf("RESIDUAL\n");
+    for(i=0;i<nNodes_up;i++){
+        printf("%d : %f\n",map_up[i],res[map_up[i]]);
+    }*/
     
     //Step 2 : restrict the residual (using the transpose)
     // We loop on the quadrants on the coarser level and if one has child then the value of the inner points must be added to the large four corners
@@ -1266,12 +1277,6 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
             res[map_down[i]] = multi->f[level][map_down[i]] - u[map_down[i]];
         }
     }
-    
-    
-    for(i=0;i<nNodes_down;i++){
-        printf("%d : %f\n",map_down[i],res[map_down[i]]);
-    }
-
 }
 
 
@@ -1488,6 +1493,9 @@ void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y,
     else{
         multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_PRE,multi->D,multi->uStar);
         multi_restriction_full(multi,level,boundary);
+        
+        printf("The value for level %d of uCentre = %f and resCentre = %f\n",level-1,multi->u[level-1][8],multi->f[level-1][8]);
+        
         //do not forget to reset the vector u!
         for(int i=0;i<multi->nNodes[level-1];i++){
             multi->u[level-1][multi->map_glob[level-1][i]] = 0.0;
