@@ -21,5 +21,6 @@
 double scalar_prod(double *x, double *y, int length);
 void linear_trans(double *x, double *y, double a, int length, double *z);
 void conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_points, double *weights, double tol, double *U, double *x, double *y, double *u_exact);
+void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *lnodes1, double *gll_points, double *weights, double tol_glob, double tol_multi, double *U, double *x, double *y, double *u_exact);
 
 #endif /* conjGrad_h */

@@ -218,16 +218,22 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     linear_trans(b_P,r,-1,nP,r);
     //initialization of the multigrid and compute of the coarse precond
     multiStruc *multi = malloc(sizeof(multiStruc));
+    int *mapping = malloc(n1*sizeof(int));
+    mesh_mapping_build(p4est,lnodes1,lnodesP,mapping);
     double *mass_matrix = malloc(nP*sizeof(double));
     double *correlation_matrix = malloc(4*vnodes*sizeof(double));
     double *mass_local = malloc(vnodes*Q*sizeof(double));
     double *r_restricted = malloc(n1*sizeof(double));
+    double *z1 = malloc(n1*sizeof(double));
     compute_restriction(p4est, lnodesP, gll_points, weights, corners_x, corners_y, hanging_P, mass_matrix, correlation_matrix, mass_local);
-    restriction_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+    restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
     multi_create_data(p4est, lnodes1, x_1, y_1, r_restricted, bc_1, multi);
     int maxlevel = multi->maxlevel;
     multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
-    prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, multi->u[maxlevel], z);
+    for(i=0;i<n1;i++){
+        z1[i] = multi->u[maxlevel][i];
+    }
+    prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
     //initialization of the fine preconditioner
     int *neighbors = malloc(12*Q*sizeof(int));
     double *L = malloc((N+2)*(N+2)*sizeof(double));
@@ -238,41 +244,44 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     neighbors_build(p4est, lnodesP, Q, neighbors);
     fine_build_L(gll_points, weights, degree, L, m);
     fine_diagonalize_L(L, V, V_inv, lambda, degree);
-    fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+    //fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
     //as this time p = z
     for(i=0;i<nP;i++){
         p[i] = z[i];
     }
-    double *f = calloc(nP,sizeof(double));
+    double *Ap = calloc(nP,sizeof(double));
     double alpha;
     double beta;
-    double pf,zr,zrNew;
+    double pAp,zr,zrNew;
     
     zr = scalar_prod(z,r,nP);
     int iter;
-    for(iter = 0; err>tol_glob && iter<nP; iter++){
+    for(iter = 0; err>tol_glob && iter<0; iter++){
+        printf("THIS IS ITERATION %d and err=%f\n",iter,err);
         //compute f
         for(i=0;i<nP;i++){
-            f[i] = 0.0;
+            Ap[i] = 0.0;
         }
-        multiply_matrix(p4est, lnodesP, bc_P, gll_points, H, weights, edge_proj, Wee_P, Wen_P, Wnn_P, hanging_P, p, f);
-        linear_trans(b_P,f,-1,nP,f);
+        multiply_matrix(p4est, lnodesP, bc_P, gll_points, H, weights, edge_proj, Wee_P, Wen_P, Wnn_P, hanging_P, p, Ap);
         //update u and r
-        pf = scalar_prod(p,f,nP);
-        alpha = zr/pf;
+        pAp = scalar_prod(p,Ap,nP);
+        alpha = zr/pAp;
         linear_trans(U,p,alpha,nP,U);
-        linear_trans(r,f,-alpha,nP,r);
+        linear_trans(r,Ap,-alpha,nP,r);
         //compute the new z
             //coarse precond
-        restriction_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+        restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
         for(i=0;i<multi->nNodes[maxlevel];i++){
             multi->u[maxlevel][i] = 0.0;
             multi->f[maxlevel][i] = r_restricted[i];
         }
         multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
-        prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, multi->u[maxlevel], z);
+        for(i=0;i<n1;i++){
+            z1[i] = multi->u[maxlevel][i];
+        }
+        prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
             //fine precond
-        fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+        //fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
         //update p
         zrNew = scalar_prod(z,r,nP);
         beta = zrNew/zr;
@@ -280,11 +289,11 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         
         //TODO : critere d'arret
         zr = zrNew;
-        err = sqrt(zr);
+        err = scalar_prod(r,r,nP);
     }
     
     if(iter==nP){
-        printf("The preconditioned conjugate gradient has not converged after %d iterations.\n",nP);
+        printf("The preconditioned conjugate gradient has NOT converged after %d iterations.\n",nP);
     }
     else{
         printf("The preconditioned conjugate gradient has converged after %d iterations.\nThe error is %f.\n",iter,err);
@@ -323,13 +332,16 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     free(p);
     free(r);
     free(z);
-    free(f);
+    free(Ap);
     //multigrid
+    free(mapping);
     free(mass_matrix);
     free(correlation_matrix);
     free(mass_local);
     multi_free(multi);
     free(multi);
+    free(r_restricted);
+    free(z1);
     //fine precond
     free(neighbors);
     free(L);

@@ -721,7 +721,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 //fill r_hanging_first and r_hanging_second
                 if(dispo==0){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]];
                         }
@@ -739,7 +739,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==1){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]];
                         }
@@ -757,7 +757,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==2){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+j*N+i]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+j*N+i]];
                         }
@@ -775,7 +775,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else{
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]];
                         }
@@ -899,7 +899,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 //fill r_hanging_first and r_hanging_second
                 if(dispo==0){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]];
                         }
@@ -917,7 +917,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==1){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]];
                         }
@@ -935,7 +935,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==2){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+j*N+i]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+j*N+i]];
                         }
@@ -953,7 +953,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else{
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]];
                         }
@@ -1077,7 +1077,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 //fill r_hanging_first and r_hanging_second
                 if(dispo==0){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]];
                         }
@@ -1095,7 +1095,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==1){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]];
                         }
@@ -1113,7 +1113,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==2){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+j*N+i]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+j*N+i]];
                         }
@@ -1131,7 +1131,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else{
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]];
                         }
@@ -1168,6 +1168,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                     r_prime[i+1] = 4*(2*r[lnodes->element_nodes[kk*vnodes+i]]-r[lnodes->element_nodes[kk*vnodes+N+i]])/(hx*hy*m[i+1]*m[0]);
                 }
             }
+            
             //TOP OVERLAP
             neigh1 = neighbors[12*kk+9];
             neigh2 = neighbors[12*kk+10];
@@ -1255,7 +1256,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 //fill r_hanging_first and r_hanging_second
                 if(dispo==0){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-i)*N+j]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-i)*N+j]];
                         }
@@ -1273,7 +1274,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==1){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+i*N+(degree-j)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+i*N+(degree-j)]];
                         }
@@ -1291,7 +1292,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else if(dispo==2){
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+j*N+i]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+j*N+i]];
                         }
@@ -1309,7 +1310,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                 }
                 else{
                     for(j=1;j<N;j++){
-                        for(i=0;j<N;i++){
+                        for(i=0;i<N;i++){
                             r_hanging_first[j*N+i] = r[lnodes->element_nodes[first*vnodes+(degree-j)*N+(degree-i)]];
                             r_hanging_second[j*N+i] = r[lnodes->element_nodes[second*vnodes+(degree-j)*N+(degree-i)]];
                         }
@@ -1346,29 +1347,31 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                     r_prime[(N+1)*M+i+1] = 4*(2*r[lnodes->element_nodes[kk*vnodes+degree*N+i]]-r[lnodes->element_nodes[kk*vnodes+(degree-1)*N+i]])/(hx*hy*m[i+1]*m[N+1]);
                 }
             }
+            
             //FOUR EXTENDED CORNERS
             r_prime[0] = 0;
             r_prime[M-1] = 0;
             r_prime[(M-1)*M] = 0;
             r_prime[M*M-1] = 0;
             
+            
             /* Step 3 : apply V, V_inv and lambda to get z_small */
-            //RV = r_prime * V
+            //RV = r_prime * V_inv
             for(J=0;J<M;J++){
                 for(I=0;I<M;I++){
                     val = 0;
                     for(k=0;k<M;k++){
-                        val += r_prime[k*M+I]*V[J*M+k];
+                        val += r_prime[k*M+I]*V_inv[J*M+k];
                     }
                     RV[J*M+I] = val;
                 }
             }
-            //VRV = V' * RV
+            //VRV = V * RV
             for(J=0;J<M;J++){
                 for(I=0;I<M;I++){
                     val = 0;
                     for(k=0;k<M;k++){
-                        val += V[I*M+k]*RV[J*M+k];
+                        val += V[k*M+I]*RV[J*M+k];
                     }
                     VRV[J*M+I] = val;
                 }
@@ -1379,12 +1382,12 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                     W[J*M+I] = VRV[J*M+I]/(4*(lambda[I]/(hx*hx)+lambda[J]/(hy*hy)));
                 }
             }
-            //Wv =  W * V_inv'
+            //Wv =  W * V
             for(J=0;J<M;J++){
                 for(I=0;I<M;I++){
                     val = 0;
                     for(k=0;k<M;k++){
-                        val += W[k*M+I]*V_inv[k*M+J];
+                        val += W[k*M+I]*V[J*M+k];
                     }
                     Wv[J*M+I] = val;
                 }
@@ -1409,92 +1412,112 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             }
             corners[0] = corners[1] = corners[2] = corners[3] = 0;
             //spread left boundary
-            if(hanging_edge[4*kk]==0){
-                for(j=1;j<degree;j++){
-                    z[lnodes->element_nodes[kk*vnodes+j*N]] += z_small[(j+1)*M+1];
+            if(neighbors[12*kk]>=0){
+                if(hanging_edge[4*kk]==0){
+                    for(j=1;j<degree;j++){
+                        z[lnodes->element_nodes[kk*vnodes+j*N]] += z_small[(j+1)*M+1];
+                    }
                 }
-            }
-            else if(hanging_edge[4*kk]==1){
-                corners[2] = 1;
-                for(j=1;j<N;j++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+k*N]] += edge_proj[j*N+k]*z_small[(j+1)*M+1];
+                else if(hanging_edge[4*kk]==1){
+                    corners[2] = 1;
+                    for(j=1;j<N;j++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+k*N]] += edge_proj[j*N+k]*z_small[(j+1)*M+1];
+                        }
+                    }
+                }
+                else{
+                    corners[0] = 1;
+                    for(j=0;j<degree;j++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+k*N]] += edge_proj[(j+N)*N+k]*z_small[(j+1)*M+1];
+                        }
                     }
                 }
             }
             else{
-                corners[0] = 1;
-                for(j=0;j<degree;j++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+k*N]] += edge_proj[(j+N)*N+k]*z_small[(j+1)*M+1];
-                    }
-                }
+                corners[0] = corners[2] = 1;
             }
             //spread right boundary
-            if(hanging_edge[4*kk+1]==0){
-                for(j=1;j<degree;j++){
-                    z[lnodes->element_nodes[kk*vnodes+j*N+degree]] += z_small[(j+1)*M+N];
+            if(neighbors[12*kk+3]>=0){
+                if(hanging_edge[4*kk+1]==0){
+                    for(j=1;j<degree;j++){
+                        z[lnodes->element_nodes[kk*vnodes+j*N+degree]] += z_small[(j+1)*M+N];
+                    }
                 }
-            }
-            else if(hanging_edge[4*kk+1]==1){
-                corners[3] = 1;
-                for(j=1;j<N;j++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+k*N+degree]] += edge_proj[j*N+k]*z_small[(j+1)*M+N];
+                else if(hanging_edge[4*kk+1]==1){
+                    corners[3] = 1;
+                    for(j=1;j<N;j++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+k*N+degree]] += edge_proj[j*N+k]*z_small[(j+1)*M+N];
+                        }
+                    }
+                }
+                else{
+                    corners[1] = 1;
+                    for(j=0;j<degree;j++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+k*N+degree]] += edge_proj[(j+N)*N+k]*z_small[(j+1)*M+N];
+                        }
                     }
                 }
             }
             else{
-                corners[1] = 1;
-                for(j=0;j<degree;j++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+k*N+degree]] += edge_proj[(j+N)*N+k]*z_small[(j+1)*M+N];
-                    }
-                }
+                corners[1] = corners[3] = 1;
             }
             //spread bottom boundary
-            if(hanging_edge[4*kk+2]==0){
-                for(i=1;i<degree;i++){
-                    z[lnodes->element_nodes[kk*vnodes+i]] += z_small[M+i+1];
+            if(neighbors[12*kk+6]>=0){
+                if(hanging_edge[4*kk+2]==0){
+                    for(i=1;i<degree;i++){
+                        z[lnodes->element_nodes[kk*vnodes+i]] += z_small[M+i+1];
+                    }
                 }
-            }
-            else if(hanging_edge[4*kk+2]==1){
-                corners[1] = 1;
-                for(i=1;i<N;i++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+k]] += edge_proj[i*N+k]*z_small[M+i+1];
+                else if(hanging_edge[4*kk+2]==1){
+                    corners[1] = 1;
+                    for(i=1;i<N;i++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+k]] += edge_proj[i*N+k]*z_small[M+i+1];
+                        }
+                    }
+                }
+                else{
+                    corners[0] = 1;
+                    for(i=0;i<degree;i++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+k]] += edge_proj[(i+N)*N+k]*z_small[M+i+1];
+                        }
                     }
                 }
             }
             else{
-                corners[0] = 1;
-                for(i=0;i<degree;i++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+k]] += edge_proj[(i+N)*N+k]*z_small[M+i+1];
-                    }
-                }
+                corners[0] = corners[1] = 1;
             }
             //spread top boundary
-            if(hanging_edge[4*kk+3]==0){
-                for(i=1;i<degree;i++){
-                    z[lnodes->element_nodes[kk*vnodes+degree*N+i]] += z_small[N*M+i+1];
+            if(neighbors[12*kk+9]>=0){
+                if(hanging_edge[4*kk+3]==0){
+                    for(i=1;i<degree;i++){
+                        z[lnodes->element_nodes[kk*vnodes+degree*N+i]] += z_small[N*M+i+1];
+                    }
                 }
-            }
-            else if(hanging_edge[4*kk+3]==1){
-                corners[3] = 1;
-                for(i=1;i<N;i++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+degree*N+k]] += edge_proj[i*N+k]*z_small[N*M+i+1];
+                else if(hanging_edge[4*kk+3]==1){
+                    corners[3] = 1;
+                    for(i=1;i<N;i++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+degree*N+k]] += edge_proj[i*N+k]*z_small[N*M+i+1];
+                        }
+                    }
+                }
+                else{
+                    corners[2] = 1;
+                    for(i=0;i<degree;i++){
+                        for(k=0;k<N;k++){
+                            z[lnodes->element_nodes[kk*vnodes+degree*N+k]] += edge_proj[(i+N)*N+k]*z_small[N*M+i+1];
+                        }
                     }
                 }
             }
             else{
-                corners[2] = 1;
-                for(i=0;i<degree;i++){
-                    for(k=0;k<N;k++){
-                        z[lnodes->element_nodes[kk*vnodes+degree*N+k]] += edge_proj[(i+N)*N+k]*z_small[N*M+i+1];
-                    }
-                }
+                corners[2] = corners[3] = 1;
             }
             //spread corners
             if(!corners[0]){

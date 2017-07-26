@@ -242,8 +242,10 @@ void linear_prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes
  * \param [in] p4est                The forest is not changed - same for both nodes layers
  * \param [in] lnodes1              The node numbering for p=1
  * \param [in] lnodesP              The node numbering for higher p
+ * \param [in] mapping              Mapping between the mesh p=1 and higher p
  * \param [in] gll_points           The Gauss-Lobatto-Legendre points for higher p
  * \param [in] hanging              Array as defined in sem.c --> compute_constant
+ * \param [in] bc_1                 Boolean flags for the boundary conditions for p=1
  * \param [in] mass_matrix          The (gloabal) mass matrix for higher p
  * \param [in] correlation_matrix   The correlation matrix needded to restrict the residual
  * \param [in] mass_local           The local mass matrix
@@ -251,12 +253,13 @@ void linear_prolong_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes
  * \param [out] R1                  Residual for p = 1
  * \param [in] RP                   Residual for higher p
  */
-void restriction_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, double *gll_points, int *hanging, double *mass_matrix, double *correlation_matrix, double *mass_local, double *edge_proj, double *R1, double *RP){
+void restriction_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, int *mapping, double *gll_points, int *hanging, int *bc_1, double *mass_matrix, double *correlation_matrix, double *mass_local, double *edge_proj, double *R1, double *RP){
     /** This is a multi-step process
      * 1. Scale RP by the inverted mass matrix
      * 2. Scatter the scaled results (using hanging relations if needed)
      * 3. Use B to get the local coarse residual
-     * 4. Gather to form the global coarse residual (nothing to do if node is hanging)
+     * 4. Gather to form the global coarse residual (nothing to do if node is hanging) 
+     * 5. Check the boundary
      */
     int i,j,k;
     const int degree = lnodesP->degree;
@@ -430,8 +433,51 @@ void restriction_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t 
             
         }
     }
+    
+    /* Step 5 : check the boundary */
+    for(i=0;i<n1;i++){
+        if(bc_1[i]){
+            R1[i] = RP[mapping[i]];
+        }
+    }
+    
+    
     free(Y);
     free(y_loc);
+}
+
+/** Builds a mapping between the mesh for p=1 and the one for higher p
+ *
+ * \param[in] p4est                 The forest is not changed
+ * \param[in] lnodes1               Node numbering for p=1
+ * \param[in] lnodesP               Node numbering for higher p
+ * \param[out] mapping              The mapping between p=1 and higher p
+ */
+void mesh_mapping_build(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t *lnodesP, int *mapping){
+    //here we do not care about hanging faces since they are the same for both meshes
+    p4est_topidx_t tt;
+    p4est_locidx_t kk,qu,Q,lni;
+    p4est_tree_t *tree;
+    p4est_quadrant_t *quad;
+    sc_array_t *tquadrants;
+    const int degree = lnodesP->degree;
+    const int N = degree+1;
+    const int vnodes = lnodesP->vnodes;
+    
+    //Loop over the quadtrees
+    for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
+        tree = p4est_tree_array_index(p4est->trees,tt);
+        tquadrants = &tree->quadrants;
+        Q = (p4est_locidx_t) tquadrants->elem_count;
+        //Loop over the quadrants
+        for(qu = 0; qu<Q; qu++,kk++){
+            mapping[lnodes1->element_nodes[kk*4]] = lnodesP->element_nodes[kk*vnodes];
+            mapping[lnodes1->element_nodes[kk*4+1]] = lnodesP->element_nodes[kk*vnodes+degree];
+            mapping[lnodes1->element_nodes[kk*4+2]] = lnodesP->element_nodes[kk*vnodes+degree*N];
+            mapping[lnodes1->element_nodes[kk*4+3]] = lnodesP->element_nodes[kk*vnodes+degree*N+degree];
+        }
+    }
+    
 }
 
 /** Prolong the residual for p=1 onto the same mesh for higher p (using the mass and correlation matrix)
@@ -488,16 +534,16 @@ void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t
                 quad_decode(lnodes1->face_code[kk],hanging_corner);
                 for(i=0;i<4;i++){
                     if(hanging_corner[i]<0){
-                        R_loc[i] = R1[lnodes1->element_nodes[kk*vnodes+i]];
+                        R_loc[i] = R1[lnodes1->element_nodes[kk*4+i]];
                     }
                     else{
-                        R_loc[i] = 0.5*(R1[lnodes1->element_nodes[kk*vnodes+i]] + R1[lnodes1->element_nodes[kk*vnodes+hanging_corner[i]]]);
+                        R_loc[i] = 0.5*(R1[lnodes1->element_nodes[kk*4+i]] + R1[lnodes1->element_nodes[kk*4+hanging_corner[i]]]);
                     }
                 }
             }
             else{
                 for(i=0;i<4;i++){
-                    R_loc[i] = R1[lnodes1->element_nodes[kk*vnodes+i]];
+                    R_loc[i] = R1[lnodes1->element_nodes[kk*4+i]];
                 }
             }
             /* Step 2 : Use B to get the local fine residual */
@@ -1493,9 +1539,6 @@ void multi_mu_scheme(multiStruc *multi, int level, int mu, double *x, double *y,
     else{
         multi_smooth(multi,level,x,y,boundary,SMOOTH_FAC,N_PRE,multi->D,multi->uStar);
         multi_restriction_full(multi,level,boundary);
-        
-        printf("The value for level %d of uCentre = %f and resCentre = %f\n",level-1,multi->u[level-1][8],multi->f[level-1][8]);
-        
         //do not forget to reset the vector u!
         for(int i=0;i<multi->nNodes[level-1];i++){
             multi->u[level-1][multi->map_glob[level-1][i]] = 0.0;
