@@ -123,12 +123,17 @@ int main(int argc, const char * argv[]) {
     lnodes1 = p4est_lnodes_new(p4est, ghost, 1);
     lnodesP = p4est_lnodes_new(p4est, ghost, degree);
     
+    printf("START!\n");
+    
     int nP = lnodesP->num_local_nodes;
     double *U = calloc(nP,sizeof(double));
     double *x = malloc(nP*sizeof(double));
     double *y = malloc(nP*sizeof(double));
+    double *u_exact = malloc(nP*sizeof(double));
     
-    precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, NULL);
+    precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
+    
+    printf("END!\n");
     
     //write the results
     write_vector(U,nP,"u");
@@ -138,6 +143,7 @@ int main(int argc, const char * argv[]) {
     free(U);
     free(x);
     free(y);
+    free(u_exact);
     
     //the end
     p4est_vtk_write_file(p4est,NULL,outputfile);

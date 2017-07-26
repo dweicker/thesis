@@ -234,6 +234,9 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         z1[i] = multi->u[maxlevel][i];
     }
     prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
+    for(i=0;i<nP;i++){
+        printf("%d : %f\n",i,z[i]);
+    }
     //initialization of the fine preconditioner
     int *neighbors = malloc(12*Q*sizeof(int));
     double *L = malloc((N+2)*(N+2)*sizeof(double));

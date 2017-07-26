@@ -513,7 +513,7 @@ void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t
     sc_array_t *tquadrants;
     
     int hanging_corner[4];
-    int R_loc[4];
+    double R_loc[4];
     double *z_loc = malloc(vnodes*sizeof(double));
     int *hang;
     
