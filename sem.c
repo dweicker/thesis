@@ -22,6 +22,7 @@
  */
 void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, double *weights, double *x, double *y, double *rhs, double *rhs_fe, double *u_exact, int *bc){
     int degree = lnodes->degree;
+    int vnodes = lnodes->vnodes;
     int i,j,hanging,hanging_corner[P4EST_CHILDREN],line_beg,line_end,col_beg,col_end;
     p4est_locidx_t nloc = lnodes->num_local_nodes;
     p4est_topidx_t tt;
@@ -86,7 +87,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             //we fill the nodes we are sure are not hanging
             for(i=line_beg;i<line_end;i++){
                 for(j=col_beg;j<col_end;j++){
-                    lni = lnodes->element_nodes[lnodes->vnodes*k+(degree+1)*i+j];
+                    lni = lnodes->element_nodes[vnodes*k+(degree+1)*i+j];
                     if(bc[lni]<0){
                         quad_mapping_11(corners_quad_x,corners_quad_y,&gll_1d[j],&gll_1d[i],1,&x[lni],&y[lni]);
                         bc[lni] = 0;
@@ -100,7 +101,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             //we still have to check the corners
             //corner 0 is not hanging and has not been visited
             if((line_beg==1 || col_beg==1) && hanging_corner[0]==-1){
-                lni = lnodes->element_nodes[lnodes->vnodes*k];
+                lni = lnodes->element_nodes[vnodes*k];
                 quad_mapping_11(corners_quad_x,corners_quad_y,&gll_1d[0],&gll_1d[0],1,&x[lni],&y[lni]);
                 bc[lni] = 0;
                 rhs[lni] = rhs_func(x[lni],y[lni]);
@@ -110,7 +111,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             }
             //corner 1 is not hanging and has not been visited
             if((line_beg==1 || col_end==degree) && hanging_corner[1]==-1){
-                lni = lnodes->element_nodes[lnodes->vnodes*k+degree];
+                lni = lnodes->element_nodes[vnodes*k+degree];
                 quad_mapping_11(corners_quad_x,corners_quad_y,&gll_1d[degree],&gll_1d[0],1,&x[lni],&y[lni]);
                 bc[lni] = 0;
                 rhs[lni] = rhs_func(x[lni],y[lni]);
@@ -120,7 +121,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             }
             //corner 2 is not hanging and has not been visited
             if((line_end==degree || col_beg==1) && hanging_corner[2]==-1){
-                lni = lnodes->element_nodes[lnodes->vnodes*k+degree*(degree+1)];
+                lni = lnodes->element_nodes[vnodes*k+degree*(degree+1)];
                 quad_mapping_11(corners_quad_x,corners_quad_y,&gll_1d[0],&gll_1d[degree],1,&x[lni],&y[lni]);
                 bc[lni] = 0;
                 rhs[lni] = rhs_func(x[lni],y[lni]);
@@ -130,7 +131,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             }
             //corner 3 is not hanging and has not been visited
             if((line_end==degree || col_end==degree) && hanging_corner[3]==-1){
-                lni = lnodes->element_nodes[lnodes->vnodes*k+degree*(degree+1)+degree];
+                lni = lnodes->element_nodes[vnodes*k+degree*(degree+1)+degree];
                 quad_mapping_11(corners_quad_x,corners_quad_y,&gll_1d[degree],&gll_1d[degree],1,&x[lni],&y[lni]);
                 bc[lni] = 0;
                 rhs[lni] = rhs_func(x[lni],y[lni]);
@@ -143,7 +144,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             //Left face is on the boundary
             if(quad->x==0 && boundary[0]){
                 for(i=0;i<=degree;i++){
-                    lni = lnodes->element_nodes[lnodes->vnodes*k+(degree+1)*i];
+                    lni = lnodes->element_nodes[vnodes*k+(degree+1)*i];
                     bc[lni] = 1;
                     rhs_fe[lni] = bc_func(x[lni],y[lni]);
                 }
@@ -151,7 +152,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             //Right face is on the boundary
             if(quad->x==P4EST_ROOT_LEN-h_int && boundary[1]){
                 for(i=0;i<=degree;i++){
-                    lni = lnodes->element_nodes[lnodes->vnodes*k+(degree+1)*i+degree];
+                    lni = lnodes->element_nodes[vnodes*k+(degree+1)*i+degree];
                     bc[lni] = 1;
                     rhs_fe[lni] = bc_func(x[lni],y[lni]);
                 }
@@ -159,7 +160,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             //Bottom face is on the boundary
             if(quad->y==0 && boundary[2]){
                 for(i=0;i<=degree;i++){
-                    lni = lnodes->element_nodes[lnodes->vnodes*k+i];
+                    lni = lnodes->element_nodes[vnodes*k+i];
                     bc[lni] = 1;
                     rhs_fe[lni] = bc_func(x[lni],y[lni]);
                 }
@@ -167,7 +168,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             //Top face is on the boundary
             if(quad->y==P4EST_ROOT_LEN-h_int && boundary[3]){
                 for(i=0;i<=degree;i++){
-                    lni = lnodes->element_nodes[lnodes->vnodes*k+(degree+1)*degree + i];
+                    lni = lnodes->element_nodes[vnodes*k+(degree+1)*degree + i];
                     bc[lni] = 1;
                     rhs_fe[lni] = bc_func(x[lni],y[lni]);
                 }

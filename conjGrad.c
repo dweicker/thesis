@@ -154,6 +154,8 @@ void conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_points, doubl
  */
 void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *lnodes1, double *gll_points, double *weights, double tol_glob, double tol_multi, double *U, double *x, double *y, double *u_exact){
     
+    printf("START PRECOND\n");
+    
     /* Important constants */
     int mu = 1;
     
@@ -165,10 +167,14 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     int N = degree+1;
     int i;
     
+    printf("CORNERS\n");
+    
     //we compute the corners
     double *corners_x = malloc(4*Q*sizeof(double));
     double *corners_y = malloc(4*Q*sizeof(double));
     compute_corners(p4est, corners_x, corners_y);
+    
+    printf("HIGH ORDER FIELDS\n");
     
     //we compute the needed fields (for high order)
     double *rhs_P = malloc(nP*sizeof(double));
@@ -176,12 +182,16 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     int *bc_P = malloc(nP*sizeof(double));
     p4est_field_eval(p4est, lnodesP, gll_points, weights, x, y, rhs_P, b_P, u_exact, bc_P);
     
+    printf("HIGH ORDER CONSTANTS\n");
+    
     //we compute the constants (for high order)
     int *hanging_P = calloc(4*Q,sizeof(int));
     double *Wee_P = malloc(Q*vnodes*sizeof(double));
     double *Wen_P = malloc(Q*vnodes*sizeof(double));
     double *Wnn_P = malloc(Q*vnodes*sizeof(double));
     compute_constant(p4est, lnodesP, corners_x, corners_y, gll_points, weights, Wee_P, Wen_P, Wnn_P, hanging_P);
+    
+    printf("LOW ORDER FIELDS\n");
     
     //we compute the needed fields (for p=1)
     double gll_1[2] = {-1.0,1.0};
@@ -194,12 +204,16 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     int *bc_1 = malloc(n1*sizeof(int));
     p4est_field_eval(p4est,lnodes1,gll_1,weights_1,x_1,y_1,rhs_1,b_1,u_exact_1,bc_1);
     
+    printf("LOW ORDER CONSTANTS\n");
+    
     //we compute the constants (for p=1)
     int *hanging_1 = calloc(4*Q,sizeof(int));
     double *Wee_1 = malloc(4*Q*sizeof(double));
     double *Wen_1 = malloc(4*Q*sizeof(double));
     double *Wnn_1 = malloc(4*Q*sizeof(double));
     compute_constant(p4est,lnodes1,corners_x,corners_y,gll_1,weights_1,Wee_1,Wen_1,Wnn_1,hanging_1);
+    
+    printf("DERIVATION MATRIX AND PROJECTIONS\n");
     
     //we compute the derivation matrix and all the projections
     double *H = malloc(N*N*sizeof(double));
@@ -209,6 +223,8 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     derivation_matrix(gll_points, H, degree);
     fine_build_projections(gll_points,degree,one_to_two,two_to_one,edge_proj);
     
+    printf("COMPUTE INITIAL RESIDUAL\n");
+    
     //initialization of the algorithm
     double err = tol_glob+1;
     double *p = malloc(nP*sizeof(double));
@@ -217,27 +233,33 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     multiply_matrix(p4est, lnodesP, bc_P, gll_points, H, weights, edge_proj, Wee_P, Wen_P, Wnn_P, hanging_P, U, r);
     linear_trans(b_P,r,-1,nP,r);
     //initialization of the multigrid and compute of the coarse precond
+    printf("INITIALIZATION COARSE\n");
     multiStruc *multi = malloc(sizeof(multiStruc));
     int *mapping = malloc(n1*sizeof(int));
+    printf("jj\n");
     mesh_mapping_build(p4est,lnodes1,lnodesP,mapping);
+    printf("gg\n");
     double *mass_matrix = malloc(nP*sizeof(double));
     double *correlation_matrix = malloc(4*vnodes*sizeof(double));
     double *mass_local = malloc(vnodes*Q*sizeof(double));
     double *r_restricted = malloc(n1*sizeof(double));
     double *z1 = malloc(n1*sizeof(double));
+    printf("lol\n");
     compute_restriction(p4est, lnodesP, gll_points, weights, corners_x, corners_y, hanging_P, mass_matrix, correlation_matrix, mass_local);
+    printf("ok\n");
     restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+    printf("ha\n");
     multi_create_data(p4est, lnodes1, x_1, y_1, r_restricted, bc_1, multi);
     int maxlevel = multi->maxlevel;
+    printf("izi\n");
     multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
+    printf("kk\n");
     for(i=0;i<n1;i++){
         z1[i] = multi->u[maxlevel][i];
     }
     prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
-    for(i=0;i<nP;i++){
-        printf("%d : %f\n",i,z[i]);
-    }
     //initialization of the fine preconditioner
+    printf("INITIALIZATION FINE\n");
     int *neighbors = malloc(12*Q*sizeof(int));
     double *L = malloc((N+2)*(N+2)*sizeof(double));
     double *m = malloc((N+2)*sizeof(double));
@@ -247,7 +269,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     neighbors_build(p4est, lnodesP, Q, neighbors);
     fine_build_L(gll_points, weights, degree, L, m);
     fine_diagonalize_L(L, V, V_inv, lambda, degree);
-    //fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+    fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
     //as this time p = z
     for(i=0;i<nP;i++){
         p[i] = z[i];
@@ -259,7 +281,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     
     zr = scalar_prod(z,r,nP);
     int iter;
-    for(iter = 0; err>tol_glob && iter<0; iter++){
+    for(iter = 0; err>tol_glob && iter<10; iter++){
         printf("THIS IS ITERATION %d and err=%f\n",iter,err);
         //compute f
         for(i=0;i<nP;i++){
@@ -269,6 +291,9 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         //update u and r
         pAp = scalar_prod(p,Ap,nP);
         alpha = zr/pAp;
+        
+        printf("This is alpha = %f\n",alpha);
+        
         linear_trans(U,p,alpha,nP,U);
         linear_trans(r,Ap,-alpha,nP,r);
         //compute the new z
@@ -284,7 +309,13 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         }
         prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
             //fine precond
-        //fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+        fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+            //precond the boundaries
+        for(i=0;i<nP;i++){
+            if(bc_P[i]){
+                z[i] = r[i];
+            }
+        }
         //update p
         zrNew = scalar_prod(z,r,nP);
         beta = zrNew/zr;

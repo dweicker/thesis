@@ -20,7 +20,7 @@
 #include "multigrid.h"
 #include "finePrecond.h"
 
-#define TOL_GLOB 0.01
+#define TOL_GLOB 0.0001
 #define TOL_MULTI 0.00000001
 
 
@@ -80,6 +80,10 @@ void write_vector(double *U,int n, const char *filename){
 /** MAIN FUNCTION **/
 int main(int argc, const char * argv[]) {
     sc_MPI_Comm mpicomm;
+    int mpiret = sc_MPI_Init (&argc, &argv);
+    SC_CHECK_MPI (mpiret);
+    mpicomm = sc_MPI_COMM_WORLD;
+    
     p4est_connectivity_t* conn;
     p4est_t* p4est;
     p4est_ghost_t      *ghost;
@@ -87,6 +91,7 @@ int main(int argc, const char * argv[]) {
     const char *outputfile = "out/semMesh";
     const char *inputfile = "mesh/fourSquareTurn.inp";
     int i,j;
+    
     
     /** BASIC CONSTANTS **/
     double gll_1[2] = {-1.0,1.0};
@@ -109,11 +114,11 @@ int main(int argc, const char * argv[]) {
     p4est_refine(p4est,0,refine_true,NULL);
     p4est_refine(p4est,0,refine_true,NULL);
     p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
 
-//    p4est_refine(p4est,0,refine_top_right,NULL);
-//    p4est_refine(p4est,0,refine_top_right,NULL);
+    p4est_refine(p4est,0,refine_top_right,NULL);
+    p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
     /* Create the ghost layer to learn about parallel neighbors. */
@@ -122,6 +127,10 @@ int main(int argc, const char * argv[]) {
     /* Create two node numberings for continuous linear finite elements. */
     lnodes1 = p4est_lnodes_new(p4est, ghost, 1);
     lnodesP = p4est_lnodes_new(p4est, ghost, degree);
+    
+    /* Destroy the ghost structure -- no longer needed after node creation. */
+    p4est_ghost_destroy(ghost);
+    ghost = NULL;
     
     printf("START!\n");
     
@@ -136,9 +145,9 @@ int main(int argc, const char * argv[]) {
     printf("END!\n");
     
     //write the results
-    write_vector(U,nP,"u");
-    write_vector(x,nP,"x");
-    write_vector(y,nP,"y");
+    write_vector(U,nP,"out/u");
+    write_vector(x,nP,"out/x");
+    write_vector(y,nP,"out/y");
     
     free(U);
     free(x);
@@ -147,8 +156,8 @@ int main(int argc, const char * argv[]) {
     
     //the end
     p4est_vtk_write_file(p4est,NULL,outputfile);
-    //p4est_lnodes_destroy(lnodes1);
-    //p4est_lnodes_destroy(lnodesP);
+    p4est_lnodes_destroy(lnodes1);
+    p4est_lnodes_destroy(lnodesP);
     p4est_destroy(p4est);
     p4est_connectivity_destroy(conn);
     

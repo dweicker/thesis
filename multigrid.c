@@ -268,7 +268,7 @@ void restriction_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t 
     const int nP = lnodesP->num_local_nodes;
     const int n1 = lnodes1->num_local_nodes;
     p4est_topidx_t tt;
-    p4est_locidx_t kk,qu,Q,lni;
+    p4est_locidx_t kk,qu,Q;
     p4est_tree_t *tree;
     p4est_quadrant_t *quad;
     sc_array_t *tquadrants;
@@ -507,7 +507,7 @@ void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t
     const int nP = lnodesP->num_local_nodes;
     const int n1 = lnodes1->num_local_nodes;
     p4est_topidx_t tt;
-    p4est_locidx_t kk,qu,Q,lni;
+    p4est_locidx_t kk,qu,Q;
     p4est_tree_t *tree;
     p4est_quadrant_t *quad;
     sc_array_t *tquadrants;
@@ -611,11 +611,10 @@ void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t
                 RP[lnodesP->element_nodes[kk*vnodes+degree*N+degree]] += z_loc[degree*N+degree];
             }
         }
-        
-        /* Step 4 : Scale the result by the global mass matrix */
-        for(i=0;i<nP;i++){
-            RP[i] /= mass_matrix[i];
-        }
+    }
+    /* Step 4 : Scale the result by the global mass matrix */
+    for(i=0;i<nP;i++){
+        RP[i] /= mass_matrix[i];
     }
     free(z_loc);
 }
