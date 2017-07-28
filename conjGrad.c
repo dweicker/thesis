@@ -281,7 +281,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     
     zr = scalar_prod(z,r,nP);
     int iter;
-    for(iter = 0; err>tol_glob && iter<10; iter++){
+    for(iter = 0; err>tol_glob && iter<20; iter++){
         printf("THIS IS ITERATION %d and err=%f\n",iter,err);
         //compute f
         for(i=0;i<nP;i++){
@@ -311,11 +311,11 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
             //fine precond
         fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
             //precond the boundaries
-        for(i=0;i<nP;i++){
-            if(bc_P[i]){
-                z[i] = r[i];
-            }
-        }
+        //for(i=0;i<nP;i++){
+        //    if(bc_P[i]){
+        //        z[i] = r[i];
+        //    }
+        //}
         //update p
         zrNew = scalar_prod(z,r,nP);
         beta = zrNew/zr;

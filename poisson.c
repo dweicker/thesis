@@ -76,6 +76,82 @@ void write_vector(double *U,int n, const char *filename){
     fclose(file);
 }
 
+/** Helper function to write a .inp for a regular mesh
+ *
+ * \param[in] n             The number of quadrants in each direction (total = n*n quadrants)
+ */
+void create_regular_mesh(int n){
+    int i,j,k;
+    double h = 2.0/n;
+    double x,y;
+    char name[24];
+    strcpy(name,"mesh/regular");
+    char size[10];
+    sprintf(size,"_%d.inp",n);
+    strcat(name,size);
+    FILE *file = fopen(name,"w");
+    
+    fprintf(file,"*Heading\n ");
+    fprintf(file,"%s\n",name);
+    fprintf(file,"*Node\n");
+    for(j=0;j<=n;j++){
+        y = -1 + h*j;
+        for(i=0;i<=n;i++){
+            x = -1 + h*i;
+            fprintf(file,"%d, %f, %f, 0.0\n",j*(n+1)+i+1,x,y);
+        }
+    }
+    fprintf(file,"*Element, type=CPS4, ELSET=Surface1\n");
+    for(j=0;j<n;j++){
+        for(i=0;i<n;i++){
+            fprintf(file,"%d, %d, %d, %d, %d\n",j*n+i+1,j*(n+1)+i+1,j*(n+1)+i+2,(j+1)*(n+1)+i+2,(j+1)*(n+1)+i+1);
+        }
+    }
+    fclose(file);
+}
+
+/** Helper function to write a .inp for a crooked mesh
+ *
+ * \param[in] A             Gives the x values for each lines (size : (m+1) lines and (n+1) columns)
+ * \param[in] m             The number of quadrants in y direction
+ * \param[in] n             The number of quadrants in x direction
+ */
+void create_crooked_mesh(double A[4][4]){
+    //TO CHANGE
+    int m = 3;
+    int n = 3;
+    
+    
+    int i,j,k;
+    double h = 2.0/m;
+    double x,y;
+    char name[24];
+    strcpy(name,"mesh/crooked");
+    char size[10];
+    sprintf(size,"_%d.inp",n*m);
+    strcat(name,size);
+    FILE *file = fopen(name,"w");
+    
+    fprintf(file,"*Heading\n ");
+    fprintf(file,"%s\n",name);
+    fprintf(file,"*Node\n");
+    for(j=0;j<=m;j++){
+        y = -1 + h*j;
+        for(i=0;i<=n;i++){
+            x = A[j][i];
+            fprintf(file,"%d, %f, %f, 0.0\n",j*(n+1)+i+1,x,y);
+        }
+    }
+    fprintf(file,"*Element, type=CPS4, ELSET=Surface1\n");
+    for(j=0;j<n;j++){
+        for(i=0;i<n;i++){
+            fprintf(file,"%d, %d, %d, %d, %d\n",j*n+i+1,j*(n+1)+i+1,j*(n+1)+i+2,(j+1)*(n+1)+i+2,(j+1)*(n+1)+i+1);
+        }
+    }
+    fclose(file);
+}
+
+
 
 /** MAIN FUNCTION **/
 int main(int argc, const char * argv[]) {
@@ -89,7 +165,7 @@ int main(int argc, const char * argv[]) {
     p4est_ghost_t      *ghost;
     p4est_lnodes_t     *lnodes1, *lnodesP;
     const char *outputfile = "out/semMesh";
-    const char *inputfile = "mesh/fourSquareTurn.inp";
+    const char *inputfile = "mesh/crooked_9.inp";
     int i,j;
     
     
@@ -110,15 +186,15 @@ int main(int argc, const char * argv[]) {
     
     /** MESH **/
     p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
+ //   p4est_refine(p4est,0,refine_true,NULL);
+ //   p4est_refine(p4est,0,refine_true,NULL);
+ //   p4est_refine(p4est,0,refine_true,NULL);
+ //   p4est_refine(p4est,0,refine_true,NULL);
+ //   p4est_refine(p4est,0,refine_true,NULL);
+ //   p4est_refine(p4est,0,refine_true,NULL);
 
-    p4est_refine(p4est,0,refine_top_right,NULL);
-    p4est_refine(p4est,0,refine_top_right,NULL);
+//    p4est_refine(p4est,0,refine_top_right,NULL);
+//    p4est_refine(p4est,0,refine_top_right,NULL);
     p4est_balance(p4est,P4EST_CONNECT_FULL,NULL);
     
     /* Create the ghost layer to learn about parallel neighbors. */
