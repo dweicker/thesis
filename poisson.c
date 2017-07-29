@@ -151,6 +151,54 @@ void create_crooked_mesh(double A[4][4]){
     fclose(file);
 }
 
+/** Test function for the multigrid solver
+ *
+ * \param[in] p4est             The forest is not changed
+ * \param[in] lnodes1           The node numbering for p=1
+ * \param[in] lnodesP           The node numbering for higher p
+ * \param[in] gll               The gll points for higher p
+ * \param[in] weights           The 1D weights
+ * \param[in] mu                The type of cycle
+ * \param[out] x,y,U            The vectors containing the solution (legnth = n1 if p=1 and nP if higher p)
+ */
+void test_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes1, double *gll, double *weights, int mu, double *x, double *y, double *U){
+    int i;
+    //int degree = lnodesP->degree;
+    //int N = degree+1;
+    //int vnodes = lnodesP->vnodes;
+    int n1 = lnodes1->num_local_nodes;
+    //int nP = lnodesP->num_local_nodes;
+    double gll_1[2] = {-1.0,1.0};
+    double weights_1[2] = {1.0,1.0};
+    
+    multiStruc *multi = malloc(sizeof(multiStruc));
+    double *x_1 = malloc(n1*sizeof(double));
+    double *y_1 = malloc(n1*sizeof(double));
+    double *rhs_1 = malloc(n1*sizeof(double));
+    double *b_1 = calloc(n1,sizeof(double));
+    double *u_exact_1 = malloc(sizeof(double));
+    int *bc_1 = malloc(n1*sizeof(int));
+    p4est_field_eval(p4est,lnodes1,gll_1,weights_1,x_1,y_1,rhs_1,b_1,u_exact_1,bc_1);
+    
+    //multi_create_data(p4est, lnodes1, x_1, y_1, b_1, bc_1, multi);
+    int maxlevel = multi->maxlevel;
+    //multi_solve_problem(multi, mu, x_1, y_1, bc_1, TOL_MULTI);
+    
+    for(i=0;i<n1;i++){
+        x[i] = x_1[i];
+        y[i] = y_1[i];
+        //U[i] = multi->u[maxlevel][i];
+    }
+    
+    //multi_free(multi);
+    free(multi);
+    free(x_1);
+    free(y_1);
+    free(rhs_1);
+    free(b_1);
+    free(u_exact_1);
+    free(bc_1);
+}
 
 
 /** MAIN FUNCTION **/
@@ -165,7 +213,7 @@ int main(int argc, const char * argv[]) {
     p4est_ghost_t      *ghost;
     p4est_lnodes_t     *lnodes1, *lnodesP;
     const char *outputfile = "out/semMesh";
-    const char *inputfile = "mesh/crooked_9.inp";
+    const char *inputfile = "mesh/regular_8.inp";
     int i,j;
     
     
@@ -186,10 +234,10 @@ int main(int argc, const char * argv[]) {
     
     /** MESH **/
     p4est_refine(p4est,0,refine_true,NULL);
- //   p4est_refine(p4est,0,refine_true,NULL);
- //   p4est_refine(p4est,0,refine_true,NULL);
- //   p4est_refine(p4est,0,refine_true,NULL);
- //   p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
  //   p4est_refine(p4est,0,refine_true,NULL);
  //   p4est_refine(p4est,0,refine_true,NULL);
 
@@ -202,7 +250,7 @@ int main(int argc, const char * argv[]) {
     
     /* Create two node numberings for continuous linear finite elements. */
     lnodes1 = p4est_lnodes_new(p4est, ghost, 1);
-    lnodesP = p4est_lnodes_new(p4est, ghost, degree);
+    //lnodesP = p4est_lnodes_new(p4est, ghost, degree);
     
     /* Destroy the ghost structure -- no longer needed after node creation. */
     p4est_ghost_destroy(ghost);
@@ -210,20 +258,26 @@ int main(int argc, const char * argv[]) {
     
     printf("START!\n");
     
-    int nP = lnodesP->num_local_nodes;
-    double *U = calloc(nP,sizeof(double));
-    double *x = malloc(nP*sizeof(double));
-    double *y = malloc(nP*sizeof(double));
-    double *u_exact = malloc(nP*sizeof(double));
+    //int nP = lnodesP->num_local_nodes;
+    int n1 = lnodes1->num_local_nodes;
+    double *U = calloc(n1,sizeof(double));
+    double *x = malloc(n1*sizeof(double));
+    double *y = malloc(n1*sizeof(double));
+    double *u_exact = malloc(n1*sizeof(double));
     
-    precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
+    
+    
+    test_multigrid(p4est,lnodes1,gll_P,weights_P,1,x,y,U);
+    
+    
+    //precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
     
     printf("END!\n");
     
     //write the results
-    write_vector(U,nP,"out/u");
-    write_vector(x,nP,"out/x");
-    write_vector(y,nP,"out/y");
+    write_vector(U,n1,"out/u");
+    write_vector(x,n1,"out/x");
+    write_vector(y,n1,"out/y");
     
     free(U);
     free(x);
@@ -233,9 +287,9 @@ int main(int argc, const char * argv[]) {
     //the end
     p4est_vtk_write_file(p4est,NULL,outputfile);
     p4est_lnodes_destroy(lnodes1);
-    p4est_lnodes_destroy(lnodesP);
-    p4est_destroy(p4est);
-    p4est_connectivity_destroy(conn);
+    //p4est_lnodes_destroy(lnodesP);
+    //p4est_destroy(p4est);
+    //p4est_connectivity_destroy(conn);
     
     return 0;
 }

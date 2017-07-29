@@ -23,7 +23,8 @@
 void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, double *weights, double *x, double *y, double *rhs, double *rhs_fe, double *u_exact, int *bc){
     int degree = lnodes->degree;
     int vnodes = lnodes->vnodes;
-    int i,j,hanging,hanging_corner[P4EST_CHILDREN],line_beg,line_end,col_beg,col_end;
+    int i,j,hanging,line_beg,line_end,col_beg,col_end;
+    int *hanging_corner = malloc(4*sizeof(int));
     p4est_locidx_t nloc = lnodes->num_local_nodes;
     p4est_topidx_t tt;
     p4est_locidx_t k,q,Q,lni;
@@ -31,9 +32,15 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
     p4est_quadrant_t *quad;
     sc_array_t *tquadrants;
     p4est_connectivity_t *conn = p4est->connectivity;
-    double corners_tree_x[4];double corners_quad_x[4];double x_loc;double h; int h_int;
-    double corners_tree_y[4];double corners_quad_y[4];double y_loc;
-    int boundary[4] = {0,0,0,0};
+    double *corners_tree_x = malloc(4*sizeof(double));
+    double *corners_tree_y = malloc(4*sizeof(double));
+    double *corners_quad_x = malloc(4*sizeof(double));
+    double *corners_quad_y = malloc(4*sizeof(double));
+    double *xsi = malloc(4*sizeof(double));
+    double *eta = malloc(4*sizeof(double));
+    double x_loc;double h; int h_int;
+    double y_loc;
+    int *boundary = calloc(4,sizeof(int));
     
     //indicator variable for visiting
     for(i=0;i<nloc;i++){
@@ -48,7 +55,6 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
         }
         tquadrants = &tree->quadrants;
         Q = (p4est_locidx_t) tquadrants->elem_count;
-        
         //we determine if this quadtree has one of its faces on the boundary
         for(i=0;i<4;i++){
             boundary[i] = (conn->tree_to_tree[4*tt+i] == tt && conn->tree_to_face[4*tt+i] == i);
@@ -62,8 +68,10 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             y_loc = ((double)quad->y)/P4EST_ROOT_LEN;
             h_int = P4EST_QUADRANT_LEN(quad->level);
             h = ((double)h_int)/P4EST_ROOT_LEN;
-            double xsi[4] = {x_loc,x_loc+h,x_loc,x_loc+h};
-            double eta[4] = {y_loc,y_loc,y_loc+h,y_loc+h};
+            xsi[0] = xsi[2] = x_loc;
+            xsi[1] = xsi[3] = x_loc+h;
+            eta[0] = eta[1] = y_loc;
+            eta[1] = eta[2] = y_loc+h;
             quad_mapping_01(corners_tree_x,corners_tree_y,xsi,eta,4,corners_quad_x,corners_quad_y);
             
             //we determine which, if any, faces are hanging
@@ -175,6 +183,14 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             }
         }
     }
+    free(hanging_corner);
+    free(corners_tree_x);
+    free(corners_tree_y);
+    free(corners_quad_x);
+    free(corners_quad_y);
+    free(xsi);
+    free(eta);
+    free(boundary);
 }
 
 
