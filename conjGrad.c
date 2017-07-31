@@ -200,7 +200,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     double *y_1 = malloc(n1*sizeof(double));
     double *rhs_1 = malloc(n1*sizeof(double));
     double *b_1 = calloc(n1,sizeof(double));
-    double *u_exact_1 = malloc(sizeof(double));
+    double *u_exact_1 = malloc(n1*sizeof(double));
     int *bc_1 = malloc(n1*sizeof(int));
     p4est_field_eval(p4est,lnodes1,gll_1,weights_1,x_1,y_1,rhs_1,b_1,u_exact_1,bc_1);
     

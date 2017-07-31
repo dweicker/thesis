@@ -22,6 +22,7 @@
  */
 void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, double *weights, double *x, double *y, double *rhs, double *rhs_fe, double *u_exact, int *bc){
     int degree = lnodes->degree;
+    int N = degree+1;
     int vnodes = lnodes->vnodes;
     int i,j,hanging,line_beg,line_end,col_beg,col_end;
     int *hanging_corner = malloc(4*sizeof(int));
@@ -41,6 +42,9 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
     double x_loc;double h; int h_int;
     double y_loc;
     int *boundary = calloc(4,sizeof(int));
+    double *edge_proj = calloc(2*N*N,sizeof(double));
+    general_projection(gll_1d, degree, edge_proj);
+    double val,xx,yy;
     
     //indicator variable for visiting
     for(i=0;i<nloc;i++){
@@ -71,11 +75,15 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
             xsi[0] = xsi[2] = x_loc;
             xsi[1] = xsi[3] = x_loc+h;
             eta[0] = eta[1] = y_loc;
-            eta[1] = eta[2] = y_loc+h;
+            eta[2] = eta[3] = y_loc+h;
             quad_mapping_01(corners_tree_x,corners_tree_y,xsi,eta,4,corners_quad_x,corners_quad_y);
             
             //we determine which, if any, faces are hanging
             hanging = quad_decode(lnodes->face_code[k],hanging_corner);
+            if(!hanging){
+                hanging_corner[0] = hanging_corner[1] = hanging_corner[2] = hanging_corner[3] = -1;
+            }
+            
             line_beg = 0; line_end = degree+1;
             col_beg = 0; col_end = degree+1;
             if(hanging){
@@ -97,7 +105,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
                 for(j=col_beg;j<col_end;j++){
                     lni = lnodes->element_nodes[vnodes*k+(degree+1)*i+j];
                     if(bc[lni]<0){
-                        quad_mapping_11(corners_quad_x,corners_quad_y,&gll_1d[j],&gll_1d[i],1,&x[lni],&y[lni]);
+                        quad_mapping_11(corners_quad_x,corners_quad_y,&(gll_1d[j]),&(gll_1d[i]),1,&(x[lni]),&(y[lni]));
                         bc[lni] = 0;
                         rhs[lni] = rhs_func(x[lni],y[lni]);
                         if(u_exact!=NULL)
@@ -148,6 +156,100 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
                 rhs_fe[lni] -= rhs[lni]*weights[degree]*weights[degree]*jacobian(corners_quad_x,corners_quad_y,gll_1d[degree],gll_1d[degree]);
             }
             
+            //left edge is hanging
+            if(hanging_corner[0]==2){
+                for(j=0;j<degree;j++){
+                    xx = corners_quad_x[0]*0.5*(1-gll_1d[j]) + corners_quad_x[2]*0.5*(1+gll_1d[j]);
+                    yy = corners_quad_y[0]*0.5*(1-gll_1d[j]) + corners_quad_y[2]*0.5*(1+gll_1d[j]);
+                    val = rhs_func(xx,yy)*weights[0]*weights[j]*jacobian(corners_quad_x,corners_quad_y,gll_1d[0],gll_1d[j]);
+                    for(i=0;i<N;i++){
+                        lni = lnodes->element_nodes[k*vnodes+i*N];
+                        rhs_fe[lni] -= edge_proj[(j+N)*N + i]*val;
+                    }
+                }
+            }
+            else if(hanging_corner[2]==0){
+                for(j=1;j<N;j++){
+                    xx = corners_quad_x[0]*0.5*(1-gll_1d[j]) + corners_quad_x[2]*0.5*(1+gll_1d[j]);
+                    yy = corners_quad_y[0]*0.5*(1-gll_1d[j]) + corners_quad_y[2]*0.5*(1+gll_1d[j]);
+                    val = rhs_func(xx,yy)*weights[0]*weights[j]*jacobian(corners_quad_x,corners_quad_y,gll_1d[0],gll_1d[j]);
+                    for(i=0;i<N;i++){
+                        lni = lnodes->element_nodes[k*vnodes+i*N];
+                        rhs_fe[lni] -= edge_proj[j*N + i]*val;
+                    }
+                }
+            }
+            //right edge is hanging
+            if(hanging_corner[1]==3){
+                for(j=0;j<degree;j++){
+                    xx = corners_quad_x[1]*0.5*(1-gll_1d[j]) + corners_quad_x[3]*0.5*(1+gll_1d[j]);
+                    yy = corners_quad_y[1]*0.5*(1-gll_1d[j]) + corners_quad_y[3]*0.5*(1+gll_1d[j]);
+                    val = rhs_func(xx,yy)*weights[degree]*weights[j]*jacobian(corners_quad_x,corners_quad_y,gll_1d[degree],gll_1d[j]);
+                    for(i=0;i<N;i++){
+                        lni = lnodes->element_nodes[k*vnodes+i*N+degree];
+                        rhs_fe[lni] -= edge_proj[(j+N)*N + i]*val;
+                    }
+                }
+            }
+            else if(hanging_corner[3]==1){
+                for(j=1;j<N;j++){
+                    xx = corners_quad_x[1]*0.5*(1-gll_1d[j]) + corners_quad_x[3]*0.5*(1+gll_1d[j]);
+                    yy = corners_quad_y[1]*0.5*(1-gll_1d[j]) + corners_quad_y[3]*0.5*(1+gll_1d[j]);
+                    val = rhs_func(xx,yy)*weights[degree]*weights[j]*jacobian(corners_quad_x,corners_quad_y,gll_1d[degree],gll_1d[j]);
+                    for(i=0;i<N;i++){
+                        lni = lnodes->element_nodes[k*vnodes+i*N+degree];
+                        rhs_fe[lni] -= edge_proj[j*N + i]*val;
+                    }
+                }
+            }
+            //bottom edge is hanging
+            if(hanging_corner[0]==1){
+                for(i=0;i<degree;i++){
+                    xx = corners_quad_x[0]*0.5*(1-gll_1d[i]) + corners_quad_x[1]*0.5*(1+gll_1d[i]);
+                    yy = corners_quad_y[0]*0.5*(1-gll_1d[i]) + corners_quad_y[1]*0.5*(1+gll_1d[i]);
+                    val = rhs_func(xx,yy)*weights[i]*weights[0]*jacobian(corners_quad_x,corners_quad_y,gll_1d[i],gll_1d[0]);
+                    for(j=0;j<N;j++){
+                        lni = lnodes->element_nodes[k*vnodes+j];
+                        rhs_fe[lni] -= edge_proj[(i+N)*N + j]*val;
+                    }
+                }
+            }
+            else if(hanging_corner[1]==0){
+                for(i=1;i<N;i++){
+                    xx = corners_quad_x[0]*0.5*(1-gll_1d[i]) + corners_quad_x[1]*0.5*(1+gll_1d[i]);
+                    yy = corners_quad_y[0]*0.5*(1-gll_1d[i]) + corners_quad_y[1]*0.5*(1+gll_1d[i]);
+                    val = rhs_func(xx,yy)*weights[i]*weights[0]*jacobian(corners_quad_x,corners_quad_y,gll_1d[i],gll_1d[0]);
+                    for(j=0;j<N;j++){
+                        lni = lnodes->element_nodes[k*vnodes+j];
+                        rhs_fe[lni] -= edge_proj[i*N + j]*val;
+                    }
+                }
+            }
+            //top edge is hanging
+            if(hanging_corner[2]==3){
+                for(i=0;i<degree;i++){
+                    xx = corners_quad_x[2]*0.5*(1-gll_1d[i]) + corners_quad_x[3]*0.5*(1+gll_1d[i]);
+                    yy = corners_quad_y[2]*0.5*(1-gll_1d[i]) + corners_quad_y[3]*0.5*(1+gll_1d[i]);
+                    val = rhs_func(xx,yy)*weights[i]*weights[degree]*jacobian(corners_quad_x,corners_quad_y,gll_1d[i],gll_1d[degree]);
+                    for(j=0;j<N;j++){
+                        lni = lnodes->element_nodes[k*vnodes+degree*N+j];
+                        rhs_fe[lni] -= edge_proj[(i+N)*N + j]*val;
+                    }
+                }
+            }
+            else if(hanging_corner[3]==2){
+                for(i=1;i<N;i++){
+                    xx = corners_quad_x[2]*0.5*(1-gll_1d[i]) + corners_quad_x[3]*0.5*(1+gll_1d[i]);
+                    yy = corners_quad_y[2]*0.5*(1-gll_1d[i]) + corners_quad_y[3]*0.5*(1+gll_1d[i]);
+                    val = rhs_func(xx,yy)*weights[i]*weights[degree]*jacobian(corners_quad_x,corners_quad_y,gll_1d[i],gll_1d[degree]);
+                    for(j=0;j<N;j++){
+                        lni = lnodes->element_nodes[k*vnodes+degree*N+j];
+                        rhs_fe[lni] -= edge_proj[i*N + j]*val;
+                    }
+                }
+            }
+            
+            
             //We indicate if some points lie on the boundary. Remember that boundaries cannot hang !
             //Left face is on the boundary
             if(quad->x==0 && boundary[0]){
@@ -191,6 +293,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
     free(xsi);
     free(eta);
     free(boundary);
+    free(edge_proj);
 }
 
 
@@ -206,7 +309,7 @@ void p4est_field_eval(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_1d, do
  */
 void build_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gll_points, double *derivation_matrix, double *weights, double *A){
     int nloc = lnodes->num_local_nodes;
-    int i,j,p,q,k,l;
+    int i,j,p,q,k,l,m;
     int degree = lnodes->degree;
     int N = degree+1;
     int vnodes = lnodes->vnodes;
@@ -219,10 +322,10 @@ void build_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gll_p
     double corners_tree_x[4];double corners_quad_x[4];double x_loc;double h;
     double corners_tree_y[4];double corners_quad_y[4];double y_loc;double factor[3];
     double *matrix = calloc(vnodes*vnodes,sizeof(double));
+    double *line = calloc(vnodes,sizeof(double));
     int *map = malloc(sizeof(int)*vnodes);
     int anyhang;
     int hanging_corner[4];
-    int not_visited[4];
     int *hanging = calloc(vnodes,sizeof(int));
     
     // Compute the general projection matrix and initialize the transformation matrix (for hanging nodes)
@@ -302,48 +405,16 @@ void build_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gll_p
             else{
                 //at least one node is hanging, let us compute the transformation matrix
                 transformation_matrix(hanging_corner, degree, vnodes, gen_proj, transform, interior);
-                //loops on every interior point
-                for(i=interior[0];i<interior[1];i++){
-                    for(j=interior[2];j<interior[3];j++){
-                        //loop on the column of matrix
-                        for(k=0;k<vnodes;k++){
-                            //loop on the linear relation for the hanging nodes
-                            for(l=0;l<vnodes;l++){
-                                A[nloc*map[i*N+j] + map[l]] += matrix[(i*N+j)*vnodes + k]*transform[k*vnodes + l];
+                
+                for(j=0;j<N;j++){ //for every node
+                    for(i=0;i<N;i++){
+                        for(k=0;k<vnodes;k++){//the line is distributed
+                            for(l=0;l<vnodes;l++){ //multiply the line by the coeff
+                                line[l] = transform[(j*N+i)*vnodes+k]*matrix[(j*N+i)*vnodes+l];
                             }
-                        }
-                    }
-                }
-                //finally, let us deal with the corners
-                for(i=0;i<4;i++){
-                    not_visited[i] = 0;
-                }
-                //we can only visit those we have not before
-                if(interior[0] > 0){
-                    not_visited[0]++;
-                    not_visited[1]++;
-                }
-                if(interior[1] <= degree){
-                    not_visited[2]++;
-                    not_visited[3]++;
-                }
-                if(interior[2] > 0){
-                    not_visited[0]++;
-                    not_visited[2]++;
-                }
-                if(interior[3] <= degree){
-                    not_visited[1]++;
-                    not_visited[3]++;
-                }
-                for(i=0;i<2;i++){
-                    for(j=0;j<2;j++){
-                        if(hanging_corner[2*i+j] == -1 && not_visited[2*i+j]){
-                            //this corner is not hanging !
-                            //loop on the column of matrix
-                            for(k=0;k<vnodes;k++){
-                                //loop on the linear relation for the hanging nodes
-                                for(l=0;l<vnodes;l++){
-                                    A[nloc*map[i*degree*N+degree*j] + map[l]] += matrix[(i*degree*N+degree*j)*vnodes + k]*transform[k*vnodes + l];
+                            for(l=0;l<vnodes;l++){ //each column may have multiple dest
+                                for(m=0;m<vnodes;m++){
+                                    A[nloc*map[k] + map[m]] += transform[l*vnodes+m]*line[l];
                                 }
                             }
                         }
@@ -357,7 +428,7 @@ void build_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gll_p
             }
         }
     }
-    free(matrix);free(map);free(hanging);free(gen_proj);free(transform);
+    free(matrix);free(map);free(hanging);free(gen_proj);free(transform);free(line);
     
     //let us finally deal with boundary conditions
     for(i=0;i<nloc;i++){
@@ -472,6 +543,7 @@ void multiply_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gl
     double *Fe = malloc(vnodes*sizeof(double));
     double *Fn = malloc(vnodes*sizeof(double));
     int *hang_loc;
+    double val;
     //NOTE : throughout the function, when we store in matrix form, (i,j) is associated with node (xsi_i, eta_j)
     
     //Loop over the quadtrees
@@ -569,7 +641,7 @@ void multiply_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gl
             }
             
             //Here we have to check for hanging nodes again
-            //Assemble the vector for non hanging nodes (do nothing for hanging nodes)
+            //Assemble the vector for non hanging nodes (use gen_proj for hanging nodes)
             if(lnodes->face_code[kk]){
                 //there is at least one hanging node
                 //fill the nodes that are not hanging (the "interior")
@@ -586,6 +658,107 @@ void multiply_matrix(p4est_t *p4est, p4est_lnodes_t *lnodes, int *bc, double *gl
                             V[lni] = U[lni];
                         }
 
+                    }
+                }
+                //fill the hanging edges using gen_proj
+                //left egde is hanging
+                if(hang_loc[0]==1){
+                    for(j=1;j<N;j++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[k]*Fe[k*N+j] + derivation_matrix[j*N+k]*Fn[k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+k*N];
+                            V[lni] += gen_proj[j*N+k]*val;
+                        }
+                    }
+                }
+                else if(hang_loc[0]==2){
+                    for(j=0;j<degree;j++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[k]*Fe[k*N+j] + derivation_matrix[j*N+k]*Fn[k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+k*N];
+                            V[lni] += gen_proj[(j+N)*N+k]*val;
+                        }
+                    }
+                }
+                //right edge is hanging
+                if(hang_loc[1]==1){
+                    for(j=1;j<N;j++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[degree*N+k]*Fe[k*N+j] + derivation_matrix[j*N+k]*Fn[degree*N+k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+k*N+degree];
+                            V[lni] += gen_proj[j*N+k]*val;
+                        }
+                    }
+                }
+                else if(hang_loc[1]==2){
+                    for(j=0;j<degree;j++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[degree*N+k]*Fe[k*N+j] + derivation_matrix[j*N+k]*Fn[degree*N+k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+k*N+degree];
+                            V[lni] += gen_proj[(j+N)*N+k]*val;
+                        }
+                    }
+                }
+                //bottom edge is hanging
+                if(hang_loc[2]==1){
+                    for(i=1;i<N;i++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[i*N+k]*Fe[k*N] + derivation_matrix[k]*Fn[i*N+k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+k];
+                            V[lni] += gen_proj[i*N+k]*val;
+                        }
+                    }
+                }
+                else if(hang_loc[2]==2){
+                    for(i=0;i<degree;i++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[i*N+k]*Fe[k*N] + derivation_matrix[k]*Fn[i*N+k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+k];
+                            V[lni] += gen_proj[(i+N)*N+k]*val;
+                        }
+                    }
+                }
+                //top edge is hanging
+                if(hang_loc[3]==1){
+                    for(i=1;i<N;i++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[i*N+k]*Fe[k*N+degree] + derivation_matrix[degree*N+k]*Fn[i*N+k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+degree*N+k];
+                            V[lni] += gen_proj[i*N+k]*val;
+                        }
+                    }
+                }
+                else if(hang_loc[3]==2){
+                    for(i=0;i<degree;i++){
+                        val = 0;
+                        for(k=0;k<N;k++){
+                            val += derivation_matrix[i*N+k]*Fe[k*N+degree] + derivation_matrix[degree*N+k]*Fn[i*N+k];
+                        }
+                        for(k=0;k<N;k++){
+                            lni = lnodes->element_nodes[kk*vnodes+degree*N+k];
+                            V[lni] += gen_proj[(i+N)*N+k]*val;
+                        }
                     }
                 }
                 //we still need to fill the corners (that might be not hanging but not in the interior)

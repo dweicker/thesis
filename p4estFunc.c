@@ -19,6 +19,20 @@ int refine_top_right(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t
     return quadrant->x == P4EST_LAST_OFFSET(quadrant->level) && quadrant->y == P4EST_LAST_OFFSET(quadrant->level);
 }
 
+/* Refine function 
+ We refine the lower left hand trees*/
+int refine_lower_left_trees(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quadrant){
+    int mod = which_tree%2;
+    int div = which_tree/2;
+    return (mod<1 && div<1);
+}
+
+/* Refine function
+ We refine the center*/
+int refine_center_trees(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quadrant){
+    return (which_tree==35 || which_tree==36 || which_tree==27 ||which_tree==28);
+}
+
 
 /** Decode the information from the face_code in P4est_lnodes_t for a given element
  *

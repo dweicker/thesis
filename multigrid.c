@@ -9,9 +9,9 @@
 #include "multigrid.h"
 
 #define SMOOTH_FAC 2.0/3.0
-#define N_PRE 3
-#define N_POST 1
-#define MAXITER 100
+#define N_PRE 200
+#define N_POST 200
+#define MAXITER 10
 
 
 /** Little compare function for integers
@@ -874,6 +874,12 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double
     }
     
     /* Step 4 : we build the matrix A_coarsest */
+    int nNodes_low = multi->nNodes[0];
+    multi->A_coarsest = malloc(nNodes_low*sizeof(double*));
+    for(i=0;i<nNodes_low;i++){
+        multi->A_coarsest[i] = calloc(nNodes_low,sizeof(double));
+    }
+    
     multi_build_coarsest_matrix(multi,boundary);
     
     free(nLevel);
@@ -886,6 +892,7 @@ void multi_create_data(p4est_t *p4est, p4est_lnodes_t *lnodes, double *x, double
  * \param[in] multi         The multigrid structure
  */
 void multi_free(multiStruc *multi){
+    multi_free_coarsest_matrix(multi);
     for(int i=0;i<=multi->maxlevel;i++){
         free(multi->quads[i]);
         free(multi->up[i]);
@@ -910,7 +917,6 @@ void multi_free(multiStruc *multi){
     free(multi->Wnn);
     free(multi->nQuadrants);
     free(multi->nNodes);
-    multi_free_coarsest_matrix(multi);
     free(multi->A_coarsest);
     free(multi->D);
     free(multi->uStar);
@@ -1190,7 +1196,7 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
         Wen = &(multi->Wen[level][4*kk]);
         Wnn = &(multi->Wnn[level][4*kk]);
         //compute U (interpolate if hanging)
-        if(hanging[4*kk]){
+        if(hanging[kk]){
             for(j=0;j<2;j++){
                 for(i=0;i<2;i++){
                     if(hanging_info[4*kk+2*j+i]>=0){
@@ -1248,7 +1254,6 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
             }
         }
     }
-    
     
     //PRINTF
     /*printf("U\n");
@@ -1399,11 +1404,12 @@ void multi_build_coarsest_matrix(multiStruc *multi, int *boundary){
     double A_loc[4][4];
     double *Wee,*Wen,*Wnn;
     
-    multi->A_coarsest = malloc(nNodes*sizeof(double*));
+    double **A_glob = multi->A_coarsest;
     for(i=0;i<nNodes;i++){
-        multi->A_coarsest[i] = calloc(nNodes,sizeof(double));
+        for(j=0;j<nNodes;j++){
+            A_glob[i][j] = 0.0;
+        }
     }
-    double **A = multi->A_coarsest;
     
     //we first build inverse_map
     int *inverse_map = calloc(multi->nNodes[multi->maxlevel],sizeof(int));
@@ -1436,21 +1442,28 @@ void multi_build_coarsest_matrix(multiStruc *multi, int *boundary){
         //we use the inverse mapping to assemble the global matrix
         for(i=0;i<4;i++){
             for(j=0;j<4;j++){
-                A[inverse_map[quads[4*kk+i]]][inverse_map[quads[4*kk+j]]] += A_loc[i][j];
+                A_glob[inverse_map[quads[4*kk+i]]][inverse_map[quads[4*kk+j]]] += A_loc[i][j];
             }
         }
     }
     //do not forget the bc
     for(i=0;i<nNodes;i++){
-        if(boundary[multi->map_glob[0][i]]){
+        if(boundary[map_glob[i]]){
             for(j=0;j<nNodes;j++){
-                A[i][j] = 0.0;
+                A_glob[i][j] = 0.0;
             }
-            A[i][i] = 1.0;
+            A_glob[i][i] = 1.0;
         }
     }
-    
     free(inverse_map);
+    
+    
+    /*for(i=0;i<nNodes;i++){
+        for(j=0;j<nNodes;j++){
+            printf("%f\n",A_glob[i][j]);
+        }
+        printf("\n");
+    }*/
 }
 
 /** Free the matrix to solve for the coarsest level
@@ -1473,23 +1486,26 @@ void multi_solve_coarsest(multiStruc *multi){
     int i,j,k;
     double factor;
     int nNodes = multi->nNodes[0];
+    int *map_glob = multi->map_glob[0];
     double **A = malloc(nNodes*sizeof(double*));
+    for(i=0;i<nNodes;i++){
+        A[i] = malloc(nNodes*sizeof(double));
+    }
     //we copy the data
     for(i=0;i<nNodes;i++){
-        A[i] = malloc(nNodes*sizeof(double*));
         for(j=0;j<nNodes;j++){
             A[i][j] = multi->A_coarsest[i][j];
         }
     }
     double *b = malloc(nNodes*sizeof(double));
     for(i=0;i<nNodes;i++){
-        b[i] = multi->f[0][multi->map_glob[0][i]];
+        b[i] = multi->f[0][map_glob[i]];
     }
     
     //Gauss elimination
     for(k=0;k<nNodes;k++){
         if(fabs(A[k][k]) < 1e-8){
-            printf("MULTIGRID - COARSEST : Pivot value %e  ",A[k][k]);
+            printf("MULTIGRID - COARSEST : Pivot value %e\n",A[k][k]);
         }
         for(i=k+1;i<nNodes;i++){
             factor = A[i][k]/A[k][k];
@@ -1499,7 +1515,6 @@ void multi_solve_coarsest(multiStruc *multi){
             b[i] -= b[k] * factor;
         }
     }
-    
     //back-substitution
     for (i = nNodes-1; i >= 0 ; i--) {
         factor = 0;
@@ -1568,13 +1583,20 @@ void multi_solve_problem(multiStruc *multi, int mu, double *x, double *y, int *b
     double err = tol+1;
     int maxlevel = multi->maxlevel;
     int *map;
+    int lni;
     for(int iter = 0; err>tol && iter<MAXITER ; iter++){
         multi_mu_scheme(multi,multi->maxlevel,mu,x,y,boundary);
+        
         err = 0;
-        map = multi->map_glob[maxlevel-1];
-        for(int i=0;i<multi->nNodes[maxlevel-1];i++){
-            err = fmax(err,fabs(multi->u[maxlevel-1][map[i]]));
+        lni = 0;
+        for(int i=0;i<multi->nNodes[maxlevel];i++){
+            if(fabs(multi->u[maxlevel][i]-uexact_func(x[i],y[i])) > err){
+                err = fabs(multi->u[maxlevel][i]-uexact_func(x[i],y[i]));
+                lni = i;
+            }
         }
+        printf("After iteration %d, the error is : %.10e\n",iter+1,err);
+        //printf("It is located at x = %.4e and y = %.4e\n",x[lni],y[lni]);
     }
 }
 

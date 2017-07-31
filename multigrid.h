@@ -16,6 +16,7 @@
 #include <p4est_lnodes.h>
 #include "p4estFunc.h"
 #include "geometry.h"
+#include "problemDef.h"
 
 typedef struct {
     int maxlevel;               //the maximum level of the recursion
