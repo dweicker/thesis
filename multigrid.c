@@ -9,8 +9,8 @@
 #include "multigrid.h"
 
 #define SMOOTH_FAC 2.0/3.0
-#define N_PRE 200
-#define N_POST 200
+#define N_PRE 2
+#define N_POST 2
 #define MAXITER 10
 
 
@@ -36,7 +36,7 @@ int compare_int(const void *a,const void *b){
  * \param[out] mass_local           The local mass matrix
  */
 void compute_restriction(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_points, double *weights, double *corners_x, double *corners_y, int *hanging, double *mass_matrix, double *correlation_matrix, double *mass_local){
-    int i,j;
+    int i,j,k;
     int degree = lnodes->degree;
     int N = degree+1;
     int vnodes = lnodes->vnodes;
@@ -46,6 +46,10 @@ void compute_restriction(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_poi
     p4est_tree_t *tree;
     p4est_quadrant_t *quad;
     sc_array_t *tquadrants;
+    
+    double *edge_proj = malloc(2*N*N*sizeof(double));
+    general_projection(gll_points,degree,edge_proj);
+    
     
     int hanging_corner[4];
     int *hang_loc;
@@ -70,30 +74,98 @@ void compute_restriction(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_poi
                     mass_matrix[lnodes->element_nodes[vnodes*kk+j*N+i]] += weights[i]*weights[j]*jac;
                 }
             }
-            //fill the edges (look at hanging!)
+            //fill the edges (look at hanging! and use the relations if we do are indeed hanging)
             hang_loc = &hanging[4*kk];
+            //left edge
             if(hang_loc[0]==0){
                 for(j=1;j<degree;j++){
                     jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[j]);
                     mass_matrix[lnodes->element_nodes[vnodes*kk+j*N]] += weights[0]*weights[j]*jac;
                 }
             }
+            else if(hang_loc[0]==1){
+                for(j=1;j<N;j++){
+                    jac = weights[0]*weights[j]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[j]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+k*N]] += edge_proj[j*N+k]*jac;
+                    }
+                }
+            }
+            else{
+                for(j=0;j<degree;j++){
+                    jac = weights[0]*weights[j]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[0],gll_points[j]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+k*N]] += edge_proj[(j+N)*N+k]*jac;
+                    }
+                }
+            }
+            //right edge
             if(hang_loc[1]==0){
                 for(j=1;j<degree;j++){
                     jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[j]);
                     mass_matrix[lnodes->element_nodes[vnodes*kk+j*N+degree]] += weights[degree]*weights[j]*jac;
                 }
             }
+            else if(hang_loc[1]==1){
+                for(j=1;j<N;j++){
+                    jac = weights[degree]*weights[j]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[j]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+k*N+degree]] += edge_proj[j*N+k]*jac;
+                    }
+                }
+            }
+            else{
+                for(j=0;j<degree;j++){
+                    jac = weights[degree]*weights[j]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[degree],gll_points[j]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+k*N+degree]] += edge_proj[(j+N)*N+k]*jac;
+                    }
+                }
+            }
+            //bottom edge
             if(hang_loc[2]==0){
                 for(i=1;i<degree;i++){
                     jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[0]);
                     mass_matrix[lnodes->element_nodes[vnodes*kk+i]] += weights[i]*weights[0]*jac;
                 }
             }
+            else if(hang_loc[2]==1){
+                for(i=1;i<N;i++){
+                    jac = weights[i]*weights[0]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[0]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+k]] += edge_proj[i*N+k]*jac;
+                    }
+                }
+            }
+            else{
+                for(i=0;i<degree;i++){
+                    jac = weights[i]*weights[0]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[0]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+k]] += edge_proj[(i+N)*N+k]*jac;
+                    }
+                }
+            }
+            //top edge
             if(hang_loc[3]==0){
                 for(i=1;i<degree;i++){
                     jac = jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[degree]);
                     mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N+i]] += weights[i]*weights[degree]*jac;
+                }
+            }
+            else if(hang_loc[3]==1){
+                for(i=1;i<N;i++){
+                    jac = weights[i]*weights[degree]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[degree]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N+k]] += edge_proj[i*N+k]*jac;
+                    }
+                }
+            }
+            else{
+                for(i=0;i<degree;i++){
+                    jac = weights[i]*weights[degree]*jacobian(&corners_x[4*kk],&corners_y[4*kk],gll_points[i],gll_points[degree]);
+                    for(k=0;k<N;k++){
+                        mass_matrix[lnodes->element_nodes[vnodes*kk+degree*N+k]] += edge_proj[(i+N)*N+k]*jac;
+                    }
                 }
             }
             //fill the corners
@@ -161,6 +233,7 @@ void compute_restriction(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll_poi
             correlation_matrix[3*vnodes+j*N+i] = 0.5*(1+gll_points[i])*0.5*(1+gll_points[j]);
         }
     }
+    free(edge_proj);
 }
 
 /** Interpolate the solution for p=1 onto the same mesh for higher p
@@ -423,6 +496,10 @@ void restriction_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t 
                     if(hanging_corner[i]<0){
                         R1[lnodes1->element_nodes[4*kk+i]] += R_loc[i];
                     }
+                    else{
+                        R1[lnodes1->element_nodes[4*kk+i]] += 0.5*R_loc[i];
+                        R1[lnodes1->element_nodes[4*kk+hanging_corner[i]]] += 0.5*R_loc[i];
+                    }
                 }
             }
             else{
@@ -490,6 +567,7 @@ void mesh_mapping_build(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t 
  * \param [in] mass_matrix          The (gloabal) mass matrix for higher p
  * \param [in] correlation_matrix   The correlation matrix needded to restrict the residual
  * \param [in] mass_local           The local mass matrix
+ * \param [in] edge_proj            The general projection for hanging edges
  * \param [in] R1                   Residual for p = 1
  * \param [out] RP                  Residual for higher p
  */
@@ -565,27 +643,83 @@ void prolongation_degree(p4est_t *p4est, p4est_lnodes_t *lnodes1, p4est_lnodes_t
                 }
             }
             //fill left
-            if(!hang[0]){
+            if(hang[0]==0){
                 for(j=1;j<degree;j++){
                     RP[lnodesP->element_nodes[kk*vnodes+j*N]] += z_loc[j*N];
                 }
             }
+            else if(hang[0]==1){
+                for(j=1;j<N;j++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+k*N]] += edge_proj[j*N+k]*z_loc[j*N];
+                    }
+                }
+            }
+            else{
+                for(j=0;j<degree;j++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+k*N]] += edge_proj[(j+N)*N+k]*z_loc[j*N];
+                    }
+                }
+            }
             //fill right
-            if(!hang[1]){
+            if(hang[1]==0){
                 for(j=1;j<degree;j++){
                     RP[lnodesP->element_nodes[kk*vnodes+j*N+degree]] += z_loc[j*N+degree];
                 }
             }
+            else if(hang[1]==1){
+                for(j=1;j<N;j++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+k*N+degree]] += edge_proj[j*N+k]*z_loc[j*N+degree];
+                    }
+                }
+            }
+            else{
+                for(j=0;j<degree;j++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+k*N+degree]] += edge_proj[(j+N)*N+k]*z_loc[j*N+degree];
+                    }
+                }
+            }
             //fill bottom
-            if(!hang[2]){
+            if(hang[2]==0){
                 for(i=1;i<degree;i++){
                     RP[lnodesP->element_nodes[kk*vnodes+i]] += z_loc[i];
                 }
             }
+            else if(hang[2]==1){
+                for(i=1;i<N;i++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+k]] += edge_proj[i*N+k]*z_loc[i];
+                    }
+                }
+            }
+            else{
+                for(i=0;i<degree;i++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+k]] += edge_proj[(i+N)*N+k]*z_loc[i];
+                    }
+                }
+            }
             //fill top
-            if(!hang[3]){
+            if(hang[3]==0){
                 for(i=1;i<degree;i++){
                     RP[lnodesP->element_nodes[kk*vnodes+degree*N+i]] += z_loc[degree*N+i];
+                }
+            }
+            else if(hang[3]==1){
+                for(i=1;i<N;i++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+degree*N+k]] += edge_proj[i*N+k]*z_loc[i];
+                    }
+                }
+            }
+            else{
+                for(i=0;i<degree;i++){
+                    for(k=0;k<N;k++){
+                        RP[lnodesP->element_nodes[kk*vnodes+degree*N+k]] += edge_proj[(i+N)*N+k]*z_loc[i];
+                    }
                 }
             }
             //corners
@@ -951,11 +1085,10 @@ void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *bound
     double *Wee;
     double *Wen;
     double *Wnn;
-    double De[4];
-    double Dn[4];
-    double Fe[4];
-    double Fn[4];
-    double H[4] = {-0.5,-0.5,0.5,0.5};
+    int *hang_loc;
+    double A_loc[4][4];
+    double D_loc[4];
+    double RU_loc[4];
     
     //we do a given number of iterations
     for(it=0;it<iter;it++){
@@ -990,52 +1123,52 @@ void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *bound
                     }
                 }
             }
-            //compute De and Dn
-            for(i=0;i<2;i++){
-                for(j=0;j<2;j++){
-                    De[i*2+j] = 0.0;
-                    Dn[i*2+j] = 0.0;
-                    for(m=0;m<2;m++){
-                        De[i*2+j] += H[m*2+i]*U[m*2+j];
-                        Dn[i*2+j] += H[m*2+j]*U[i*2+m];
-                    }
-                }
-            }
-            //compute Fe and Fn
-            for(i=0;i<2;i++){
-                for(j=0;j<2;j++){
-                    Fe[i*2+j] = Wee[j*2+i]*De[i*2+j] + Wen[j*2+i]*Dn[i*2+j];
-                    Fn[i*2+j] = Wen[j*2+i]*De[i*2+j] + Wnn[j*2+i]*Dn[i*2+j];
-                }
-            }
-            //compute the diagonal contribution
-            diag[0] = 0.25*(Wee[0]+2*Wen[0]+Wnn[0]+Wee[1]+Wnn[2]);
-            diag[1] = 0.25*(Wee[0]+Wee[1]-2*Wen[1]+Wnn[1]+Wnn[3]);
-            diag[2] = 0.25*(Wnn[0]+Wee[2]-2*Wen[2]+Wnn[2]+Wee[3]);
-            diag[3] = 0.25*(Wnn[1]+Wee[2]+Wee[3]+2*Wen[3]+Wnn[3]);
-            //compute uStar and D (do not forget to look at the diagonal contribution) for the non hanging nodes
+            //Build A_loc
+            A_loc[0][0] = 0.25*(Wee[0]+2*Wen[0]+Wnn[0]+Wee[1]+Wnn[2]);
+            A_loc[1][1] = 0.25*(Wee[0]+Wee[1]-2*Wen[1]+Wnn[1]+Wnn[3]);
+            A_loc[2][2] = 0.25*(Wnn[0]+Wee[2]-2*Wen[2]+Wnn[2]+Wee[3]);
+            A_loc[3][3] = 0.25*(Wnn[1]+Wee[2]+Wee[3]+2*Wen[3]+Wnn[3]);
+            A_loc[0][1] = 0.25*(-Wee[0]-Wee[1]+Wen[1]-Wen[0]);
+            A_loc[0][2] = 0.25*(Wen[2]-Wen[0]-Wnn[0]-Wnn[2]);
+            A_loc[0][3] = 0.25*(-Wen[2]-Wen[1]);
+            A_loc[1][2] = 0.25*(Wen[3]+Wen[0]);
+            A_loc[1][3] = 0.25*(-Wen[3]+Wen[1]-Wnn[3]-Wnn[1]);
+            A_loc[2][3] = 0.25*(-Wee[2]-Wee[3]+Wen[2]-Wen[3]);
+            A_loc[1][0] = A_loc[0][1];
+            A_loc[2][0] = A_loc[0][2];
+            A_loc[3][0] = A_loc[0][3];
+            A_loc[2][1] = A_loc[1][2];
+            A_loc[3][1] = A_loc[1][3];
+            A_loc[3][2] = A_loc[2][3];
+            //compute DU and RU=(A-D)U
+            D_loc[0] = A_loc[0][0];
+            D_loc[1] = A_loc[1][1];
+            D_loc[2] = A_loc[2][2];
+            D_loc[3] = A_loc[3][3];
+            RU_loc[0] = A_loc[0][1]*U[1] + A_loc[0][2]*U[2] + A_loc[0][3]*U[3];
+            RU_loc[1] = A_loc[1][0]*U[0] + A_loc[1][2]*U[2] + A_loc[1][3]*U[3];
+            RU_loc[2] = A_loc[2][0]*U[0] + A_loc[2][1]*U[1] + A_loc[2][3]*U[3];
+            RU_loc[3] = A_loc[3][0]*U[0] + A_loc[3][1]*U[1] + A_loc[3][2]*U[2];
+            //split the vector (do not forget the hanging relations...)
             if(hanging[kk]){
-                for(j=0;j<2;j++){
-                    for(i=0;i<2;i++){
-                        if(hanging_info[4*kk+j*2+i]<0){
-                            for(m=0;m<2;m++){
-                                uStar[quads[4*kk+j*2+i]] -= (H[i*2+m]*Fe[m*2+j] + Fn[i*2+m]*H[j*2+m]);
-                            }
-                            uStar[quads[4*kk+j*2+i]] += diag[j*2+i]*U[i*2+j];
-                            D[quads[4*kk+j*2+i]] += diag[j*2+i];
-                        }
+                hang_loc = &hanging_info[4*kk];
+                for(i=0;i<4;i++){
+                    if(hang_loc[i]<0){
+                        uStar[quads[4*kk+i]] -= RU_loc[i];
+                        D[quads[4*kk+i]] += D_loc[i];
+                    }
+                    else{
+                        uStar[quads[4*kk+i]] -= 0.5*RU_loc[i];
+                        uStar[quads[4*kk+hang_loc[i]]] -= 0.5*RU_loc[i];
+                        D[quads[4*kk+i]] += 0.5*D_loc[i];
+                        D[quads[4*kk+hang_loc[i]]] += 0.5*D_loc[i];
                     }
                 }
             }
             else{
-                for(j=0;j<2;j++){
-                    for(i=0;i<2;i++){
-                        for(m=0;m<2;m++){
-                            uStar[quads[4*kk+j*2+i]] -= (H[i*2+m]*Fe[m*2+j] + Fn[i*2+m]*H[j*2+m]);
-                        }
-                        uStar[quads[4*kk+j*2+i]] += diag[j*2+i]*U[i*2+j];
-                        D[quads[4*kk+j*2+i]] += diag[j*2+i];
-                    }
+                for(i=0;i<4;i++){
+                    uStar[quads[4*kk+i]] -= RU_loc[i];
+                    D[quads[4*kk+i]] += D_loc[i];
                 }
             }
         }
@@ -1058,6 +1191,7 @@ void multi_smooth(multiStruc *multi, int level, double *x, double *y, int *bound
  * \param[in] level             The above level (the level where we compute the residual)
  * \param[in] boundary          Boolean flags for boundary conditions on the global nodes
  */
+/* @@!! UNUSED !!@@ */
 void multi_restriction(multiStruc *multi, int level, int *boundary){
     /*This is a two-step problem
      * 1. Compute the residual on the fine grid
@@ -1197,22 +1331,18 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
         Wnn = &(multi->Wnn[level][4*kk]);
         //compute U (interpolate if hanging)
         if(hanging[kk]){
-            for(j=0;j<2;j++){
-                for(i=0;i<2;i++){
-                    if(hanging_info[4*kk+2*j+i]>=0){
-                        U[j*2+i] = 0.5*(u[quads[4*kk+j*2+i]]+u[quads[4*kk+hanging_info[4*kk+j*2+i]]]);
-                    }
-                    else{
-                        U[j*2+i] = u[quads[4*kk+j*2+i]];
-                    }
+            for(i=0;i<4;i++){
+                if(hanging_info[4*kk+i]<0){
+                    U[i] = u[quads[4*kk+i]];
+                }
+                else{
+                    U[i] = 0.5*(u[quads[4*kk+i]]+u[quads[4*kk+hanging_info[4*kk+i]]]);
                 }
             }
         }
         else{
-            for(j=0;j<2;j++){
-                for(i=0;i<2;i++){
-                    U[j*2+i] = u[quads[4*kk+j*2+i]];
-                }
+            for(i=0;i<4;i++){
+                U[i] = u[quads[4*kk+i]];
             }
         }
         //Build A_loc
@@ -1232,24 +1362,26 @@ void multi_restriction_full(multiStruc *multi, int level, int *boundary){
         A_loc[2][1] = A_loc[1][2];
         A_loc[3][1] = A_loc[1][3];
         A_loc[3][2] = A_loc[2][3];
-        //compute the residual (for non hanging nodes)
+        //compute the residual
         if(hanging[kk]){
-            for(j=0;j<2;j++){
-                for(i=0;i<2;i++){
-                    if(hanging_info[4*kk+j*2+i]<0){
-                        for(m=0;m<4;m++){
-                            res[quads[4*kk+j*2+i]] -= A_loc[j*2+i][m]*U[m];
-                        }
+            for(i=0;i<4;i++){
+                if(hanging_info[4*kk+i]<0){
+                    for(m=0;m<4;m++){
+                        res[quads[4*kk+i]] -= A_loc[i][m]*U[m];
+                    }
+                }
+                else{
+                    for(m=0;m<4;m++){
+                        res[quads[4*kk+i]] -= 0.5*A_loc[i][m]*U[m];
+                        res[quads[4*kk+hanging_info[4*kk+i]]] -= 0.5*A_loc[i][m]*U[m];
                     }
                 }
             }
         }
         else{
-            for(j=0;j<2;j++){
-                for(i=0;i<2;i++){
-                    for(m=0;m<4;m++){
-                        res[quads[4*kk+j*2+i]] -= A_loc[j*2+i][m]*U[m];
-                    }
+            for(i=0;i<4;i++){
+                for(m=0;m<4;m++){
+                    res[quads[4*kk+i]] -= A_loc[i][m]*U[m];
                 }
             }
         }

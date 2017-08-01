@@ -185,14 +185,15 @@ void test_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes1, double *gll, double
     multi_create_data(p4est, lnodes1, x1, y1, b1, bc1, multi);
     int maxlevel = multi->maxlevel;
     printf("BEGIN SOLVING MULTI\n");
-    //multi_solve_problem(multi, mu, x1, y1, bc1, TOL_MULTI);
+    multi_solve_problem(multi, mu, x1, y1, bc1, TOL_MULTI);
     
-    //multi_smooth(multi, maxlevel, x1, y1, bc1, 2.0/3.0, 10000, multi->D, multi->uStar);
+    //multi_smooth(multi, maxlevel, x1, y1, bc1, 2.0/3.0, 1, multi->D, multi->uStar);
     
-    double *A = calloc(n1*n1,sizeof(double));
-    build_matrix(p4est, lnodes1, bc1, gll1, H, weights1, A);
-    write_matrix_from_vector(A,n1,"out/A.txt");
-    write_vector(b1,n1,"out/b.txt");
+    //double *A = calloc(n1*n1,sizeof(double));
+    //build_matrix(p4est, lnodes1, bc1, gll1, H, weights1, A);
+    //write_matrix_from_vector(A,n1,"out/A.txt");
+    //write_vector(b1,n1,"out/b.txt");
+    //free(A);
     
     
     /*for(int k=0 ; k<=maxlevel; k++){
@@ -217,7 +218,6 @@ void test_multigrid(p4est_t *p4est, p4est_lnodes_t *lnodes1, double *gll, double
     free(b1);
     free(u_exact1);
     free(bc1);
-    free(A);
 }
 
 /** Test Function for the multiply matrix 
@@ -308,7 +308,7 @@ int main(int argc, const char * argv[]) {
     p4est_ghost_t      *ghost;
     p4est_lnodes_t     *lnodes1, *lnodesP;
     const char *outputfile = "out/semMesh";
-    const char *inputfile = "mesh/fourSquare.inp";
+    const char *inputfile = "mesh/regular_8.inp";
     int i,j;
     
     
@@ -331,25 +331,25 @@ int main(int argc, const char * argv[]) {
     p4est = p4est_new(mpicomm,conn,0,NULL,NULL);
     
     /** MESH **/
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
     
-//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
-//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
-//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
-//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
-//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
     p4est_refine(p4est,0,refine_lower_left_trees,NULL);
     p4est_refine(p4est,0,refine_lower_left_trees,NULL);
-    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
     
 //    p4est_refine(p4est,0,refine_center_trees,NULL);
 //    p4est_refine(p4est,0,refine_center_trees,NULL);
@@ -375,7 +375,7 @@ int main(int argc, const char * argv[]) {
     
     printf("START!\n");
     
-    //int nP = lnodesP->num_local_nodes;
+    int nP = lnodesP->num_local_nodes;
     int n1 = lnodes1->num_local_nodes;
     double *U = calloc(n1,sizeof(double));
     double *x = malloc(n1*sizeof(double));
@@ -394,13 +394,43 @@ int main(int argc, const char * argv[]) {
             
     //create_crooked_mesh(A_crooked);
     
-    test_multiply(p4est, lnodes1, gll_1, weights_1, x, y, U);
+    //test_multiply(p4est, lnodes1, gll_1, weights_1, x, y, U);
     //test_multigrid(p4est,lnodes1,gll_P,weights_P,1,x,y,U);
+    
+    printf("END MULTIGRID!\n");
+    
+    int Q = p4est->local_num_quadrants;
+    int vnodes = lnodesP->vnodes;
+    double *corners_x = malloc(4*Q*sizeof(double));
+    double *corners_y = malloc(4*Q*sizeof(double));
+    compute_corners(p4est, corners_x, corners_y);
+    double *Wee = malloc(vnodes*Q*sizeof(double));
+    double *Wen = malloc(vnodes*Q*sizeof(double));
+    double *Wnn = malloc(vnodes*Q*sizeof(double));
+    int *hanging = calloc(4*Q,sizeof(int));
+    compute_constant(p4est, lnodesP, corners_x, corners_y, gll_P, weights_P, Wee, Wen, Wnn, hanging);
+    double *mass_matrix = malloc(nP*sizeof(double));
+    double *correlation_matrix = malloc(4*vnodes*sizeof(double));
+    double *mass_local = malloc(vnodes*Q*sizeof(double));
+    compute_restriction(p4est, lnodesP, gll_P, weights_P, corners_x, corners_y, hanging, mass_matrix, correlation_matrix, mass_local);
+    double val = 0;
+    for(i=0;i<nP;i++){
+        val += mass_matrix[i];
+    }
+    printf("And the sum of the mass matrix is : %.10e\n",val);
+    free(corners_x);
+    free(corners_y);
+    free(Wee);
+    free(Wen);
+    free(Wnn);
+    free(hanging);
+    free(mass_local);
+    free(correlation_matrix);
+    free(mass_matrix);
     
     
     //precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
     
-    printf("END!\n");
     
     //write the results
     write_vector(U,n1,"out/u");
@@ -415,7 +445,7 @@ int main(int argc, const char * argv[]) {
     printf("END WRITING\n");
     
     //the end
-    p4est_vtk_write_file(p4est,NULL,outputfile);
+    //p4est_vtk_write_file(p4est,NULL,outputfile);
     p4est_lnodes_destroy(lnodes1);
     p4est_lnodes_destroy(lnodesP);
     p4est_destroy(p4est);
