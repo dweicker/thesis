@@ -21,7 +21,7 @@
 #include "finePrecond.h"
 
 #define TOL_GLOB 0.0001
-#define TOL_MULTI 0.00000001
+#define TOL_MULTI 0.000000001
 
 
 
@@ -295,6 +295,103 @@ void test_multiply(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll, double *
     free(r);
 }
 
+/** Test Function for the fine precond
+ *
+ * \param[in] p4est             The forest is not changed
+ * \param[in] lnodes            The node numbering is not changed
+ * \param[in] gll               Gauss lobatto legendre points
+ * \param[in] weights           Integration weights (1D)
+ * \param[in] x,y               Coordinates of the global nodes
+ * \param[in] U                 Solution
+ */
+void test_fine(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll, double *weights, double *x, double *y, double *U){
+    
+    int iterMax = 1;
+    double alpha = 0.1;
+    
+    int nP = lnodes->num_local_nodes;
+    int Q = p4est->local_num_quadrants;
+    int vnodes = lnodes->vnodes;
+    int degree = lnodes->degree;
+    int N = degree+1;
+    int i;
+    
+    double *corners_x = malloc(4*Q*sizeof(double));
+    double *corners_y = malloc(4*Q*sizeof(double));
+    compute_corners(p4est, corners_x, corners_y);
+    
+    double *rhs = malloc(nP*sizeof(double));
+    double *b = calloc(nP,sizeof(double));
+    double *u_exact = malloc(nP*sizeof(double));
+    int *bc = malloc(nP*sizeof(double));
+    p4est_field_eval(p4est, lnodes, gll, weights, x, y, rhs, b, u_exact, bc);
+    
+    int *hanging = calloc(4*Q,sizeof(int));
+    double *Wee = malloc(Q*vnodes*sizeof(double));
+    double *Wen = malloc(Q*vnodes*sizeof(double));
+    double *Wnn = malloc(Q*vnodes*sizeof(double));
+    compute_constant(p4est, lnodes, corners_x, corners_y, gll, weights, Wee, Wen, Wnn, hanging);
+    
+    double *edge_proj = malloc(2*N*N*sizeof(double));
+    double *one_to_two = malloc(2*N*vnodes*sizeof(double));
+    double *two_to_one = malloc(N*vnodes*sizeof(double));
+    fine_build_projections(gll,degree,one_to_two,two_to_one,edge_proj);
+    double *H = malloc(N*N*sizeof(double));
+    derivation_matrix(gll, H, degree);
+
+    
+    int *neighbors = malloc(12*Q*sizeof(int));
+    double *L = malloc((N+2)*(N+2)*sizeof(double));
+    double *m = malloc((N+2)*sizeof(double));
+    double *V = malloc((N+2)*(N+2)*sizeof(double));
+    double *V_inv = malloc((N+2)*(N+2)*sizeof(double));
+    double *lambda = malloc((N+2)*sizeof(double));
+    neighbors_build(p4est, lnodes, Q, neighbors);
+    fine_build_L(gll, weights, degree, L, m);
+    fine_diagonalize_L(L, V, V_inv, lambda, degree);
+    
+    double a;
+    double *r = malloc(nP*sizeof(double));
+    double *z = malloc(nP*sizeof(double));
+    for(int iter=0;iter<iterMax;iter++){
+        for(i=0;i<nP;i++){
+            r[i] = 0.0;
+        }
+        multiply_matrix(p4est, lnodes, bc, gll, H, weights, edge_proj, Wee, Wen, Wnn, hanging, U, r);
+        for(i=0;i<nP;i++){
+            a = r[i];
+            r[i] = b[i] - a;
+        }
+        fine_update(p4est, lnodes, neighbors, V, V_inv, lambda, m, r, z, hanging, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
+        for(i=0;i<nP;i++){
+            U[i] += alpha*z[i];
+        }
+    }
+    
+    free(corners_x);
+    free(corners_y);
+    free(rhs);
+    free(b);
+    free(u_exact);
+    free(bc);
+    free(hanging);
+    free(Wee);
+    free(Wen);
+    free(Wnn);
+    free(edge_proj);
+    free(one_to_two);
+    free(two_to_one);
+    free(H);
+    free(neighbors);
+    free(L);
+    free(m);
+    free(V);
+    free(V_inv);
+    free(lambda);
+    
+    free(r);
+    free(z);
+}
 
 /** MAIN FUNCTION **/
 int main(int argc, const char * argv[]) {
@@ -308,19 +405,19 @@ int main(int argc, const char * argv[]) {
     p4est_ghost_t      *ghost;
     p4est_lnodes_t     *lnodes1, *lnodesP;
     const char *outputfile = "out/semMesh";
-    const char *inputfile = "mesh/regular_8.inp";
+    const char *inputfile = "mesh/fourSquare.inp";
     int i,j;
     
     
     /** BASIC CONSTANTS **/
     double gll_1[2] = {-1.0,1.0};
     double weights_1[2] = {1.0,1.0};
-    //double gll_P[3] = {-1.0,0,1.0};
-    //double weights_P[3] = {1.0/3.0,4.0/3.0,1.0/3.0};
-    //int degree = 2;
-    double gll_P[9] = {-1.0, -0.8997579954114601573123, -0.6771862795107377534459, -0.3631174638261781587108, 0.0, 0.3631174638261781587108, 0.6771862795107377534459, 0.8997579954114601573123, 1.0};
-    double weights_P[9] = {0.02777777777777777777778, 0.165495361560805525046, 0.2745387125001617352807, 0.346428510973046345115, 0.3715192743764172335601, 0.346428510973046345115, 0.2745387125001617352807, 0.165495361560805525046, 0.02777777777777777777778};
-    int degree = 8;
+    double gll_P[3] = {-1.0,0,1.0};
+    double weights_P[3] = {1.0/3.0,4.0/3.0,1.0/3.0};
+    int degree = 2;
+    //double gll_P[9] = {-1.0, -0.8997579954114601573123, -0.6771862795107377534459, -0.3631174638261781587108, 0.0, 0.3631174638261781587108, 0.6771862795107377534459, 0.8997579954114601573123, 1.0};
+    //double weights_P[9] = {0.02777777777777777777778, 0.165495361560805525046, 0.2745387125001617352807, 0.346428510973046345115, 0.3715192743764172335601, 0.346428510973046345115, 0.2745387125001617352807, 0.165495361560805525046, 0.02777777777777777777778};
+    //int degree = 8;
     
     /** FOREST **/
     //conn = p4est_connectivity_new_unitsquare();
@@ -331,19 +428,21 @@ int main(int argc, const char * argv[]) {
     p4est = p4est_new(mpicomm,conn,0,NULL,NULL);
     
     /** MESH **/
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
-    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//    p4est_refine(p4est,0,refine_true,NULL);
+//   p4est_refine(p4est,0,refine_true,NULL);
     
-    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
-    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+    p4est_refine(p4est,0,refine_first_tree,NULL);
+    
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
+//    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
 //    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
 //    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
 //    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
@@ -377,10 +476,10 @@ int main(int argc, const char * argv[]) {
     
     int nP = lnodesP->num_local_nodes;
     int n1 = lnodes1->num_local_nodes;
-    double *U = calloc(n1,sizeof(double));
-    double *x = malloc(n1*sizeof(double));
-    double *y = malloc(n1*sizeof(double));
-    double *u_exact = malloc(n1*sizeof(double));
+    double *U = calloc(nP,sizeof(double));
+    double *x = calloc(nP,sizeof(double));
+    double *y = calloc(nP,sizeof(double));
+    double *u_exact = calloc(nP,sizeof(double));
     
     /*double A_crooked[9][9] = {{-1.0, -0.75, -0.58, -0.42, -0.20, 0.09, 0.42, 0.75, 1},
         {-1.0, -0.75, -0.56, -0.37, -0.15, 0.13, 0.44, 0.75, 1},
@@ -391,51 +490,21 @@ int main(int argc, const char * argv[]) {
         {-1.0, -0.75, -0.46, -0.17,  0.10, 0.33, 0.54, 0.75, 1},
         {-1.0, -0.75, -0.44, -0.13,  0.15, 0.37, 0.56, 0.75, 1},
         {-1.0, -0.75, -0.42, -0.09,  0.20, 0.41, 0.58, 0.75, 1}};*/
-            
     //create_crooked_mesh(A_crooked);
-    
     //test_multiply(p4est, lnodes1, gll_1, weights_1, x, y, U);
+    
     //test_multigrid(p4est,lnodes1,gll_P,weights_P,1,x,y,U);
     
-    printf("END MULTIGRID!\n");
-    
-    int Q = p4est->local_num_quadrants;
-    int vnodes = lnodesP->vnodes;
-    double *corners_x = malloc(4*Q*sizeof(double));
-    double *corners_y = malloc(4*Q*sizeof(double));
-    compute_corners(p4est, corners_x, corners_y);
-    double *Wee = malloc(vnodes*Q*sizeof(double));
-    double *Wen = malloc(vnodes*Q*sizeof(double));
-    double *Wnn = malloc(vnodes*Q*sizeof(double));
-    int *hanging = calloc(4*Q,sizeof(int));
-    compute_constant(p4est, lnodesP, corners_x, corners_y, gll_P, weights_P, Wee, Wen, Wnn, hanging);
-    double *mass_matrix = malloc(nP*sizeof(double));
-    double *correlation_matrix = malloc(4*vnodes*sizeof(double));
-    double *mass_local = malloc(vnodes*Q*sizeof(double));
-    compute_restriction(p4est, lnodesP, gll_P, weights_P, corners_x, corners_y, hanging, mass_matrix, correlation_matrix, mass_local);
-    double val = 0;
-    for(i=0;i<nP;i++){
-        val += mass_matrix[i];
-    }
-    printf("And the sum of the mass matrix is : %.10e\n",val);
-    free(corners_x);
-    free(corners_y);
-    free(Wee);
-    free(Wen);
-    free(Wnn);
-    free(hanging);
-    free(mass_local);
-    free(correlation_matrix);
-    free(mass_matrix);
+    test_fine(p4est,lnodesP,gll_P,weights_P,x,y,U);
     
     
     //precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
     
     
     //write the results
-    write_vector(U,n1,"out/u");
-    write_vector(x,n1,"out/x");
-    write_vector(y,n1,"out/y");
+    write_vector(U,nP,"out/u");
+    write_vector(x,nP,"out/x");
+    write_vector(y,nP,"out/y");
     
     free(U);
     free(x);
@@ -445,7 +514,7 @@ int main(int argc, const char * argv[]) {
     printf("END WRITING\n");
     
     //the end
-    //p4est_vtk_write_file(p4est,NULL,outputfile);
+    p4est_vtk_write_file(p4est,NULL,outputfile);
     p4est_lnodes_destroy(lnodes1);
     p4est_lnodes_destroy(lnodesP);
     p4est_destroy(p4est);

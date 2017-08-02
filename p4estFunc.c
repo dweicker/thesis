@@ -7,6 +7,10 @@
 //
 
 #include "p4estFunc.h"
+#define TOL_REF 0.01
+
+
+
 /* Refine function
  We refine a fixed number of times*/
 int refine_true(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quadrant){
@@ -31,6 +35,53 @@ int refine_lower_left_trees(p4est_t * p4est, p4est_topidx_t which_tree,p4est_qua
  We refine the center*/
 int refine_center_trees(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quadrant){
     return (which_tree==35 || which_tree==36 || which_tree==27 ||which_tree==28);
+}
+
+/* Refine function
+ We refine the center*/
+int refine_first_tree(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quadrant){
+    return (which_tree==0);
+}
+
+/* Refine function
+ We refine depending on how close we are to the nice stuff
+ */
+int refine_estimation(p4est_t * p4est, p4est_topidx_t which_tree,p4est_quadrant_t * quad){
+    // Step 1 : compute the coordinates of the corners of the quadrant
+    double corners_tree_x[4];
+    double corners_tree_y[4];
+    p4est_connectivity_t *conn = p4est->connectivity;
+    for(int i=0;i<4;i++){
+        corners_tree_x[i] = conn->vertices[3*conn->tree_to_vertex[4*which_tree+i]];
+        corners_tree_y[i] = conn->vertices[3*conn->tree_to_vertex[4*which_tree+i]+1];
+    }
+    double x_quad = ((double)quad->x)/P4EST_ROOT_LEN;
+    double y_quad = ((double)quad->y)/P4EST_ROOT_LEN;
+    int h_int = P4EST_QUADRANT_LEN(quad->level);
+    double h = ((double)h_int)/P4EST_ROOT_LEN;
+    
+    double phi[4][4] = { {(1-x_quad)*(1-y_quad) , x_quad*(1-y_quad), (1-x_quad)*y_quad, x_quad*y_quad},
+        {(1-x_quad-h)*(1-y_quad) , (x_quad+h)*(1-y_quad), (1-x_quad-h)*y_quad, (x_quad+h)*y_quad},
+        {(1-x_quad)*(1-y_quad-h) , x_quad*(1-y_quad-h), (1-x_quad)*(y_quad+h), x_quad*(y_quad+h)},
+        {(1-x_quad-h)*(1-y_quad-h) , (x_quad+h)*(1-y_quad-h), (1-x_quad-h)*(y_quad+h), (x_quad+h)*(y_quad+h)}};
+    double x[4];
+    double y[4];
+    for(int i=0;i<4;i++){
+        x[i] = 0;
+        y[i] = 0;
+        for(int j=0;j<4;j++){
+            x[i] += phi[i][j]*corners_tree_x[i];
+            y[i] += phi[i][j]*corners_tree_y[i];
+        }
+    }
+    //Step 2 : compare the value of mean of the corners with the mean of the value of the corners
+    double x_mean = 0.25*(x[0]+x[1]+x[2]+x[3]);
+    double y_mean = 0.25*(y[0]+y[1]+y[2]+y[3]);
+    double u_mean = 0.25*(uexact_func(x[0],y[0])+uexact_func(x[1],y[1])+uexact_func(x[2],y[2])+uexact_func(x[3],y[3]));
+    double err = fabs(u_mean-uexact_func(x_mean,y_mean));
+    //Step 3 : check if the error is not too important
+    return err>TOL_REF;
+    
 }
 
 

@@ -487,9 +487,9 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
     
     
     /* Step 1 : clean z (facultatif - if we add to the coarse precond, do not do it) */
-    /*for(i=0;i<NN;i++){
+    for(i=0;i<NN;i++){
         z[i] = 0;
-    }*/
+    }
     
     /* Go through the quadrants */
     for(tt = p4est->first_local_tree,kk=0;tt<=p4est->last_local_tree;tt++){
@@ -1355,13 +1355,23 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             r_prime[M*M-1] = 0;
             
             
+            //PRINTF
+            printf("This is quadrant %d\n",kk);
+            for(J=0;J<M;J++){
+                for(I=0;I<M;I++){
+                    printf("%f ",r_prime[J*M+I]);
+                }
+                printf("\n");
+            }
+            
+            
             /* Step 3 : apply V, V_inv and lambda to get z_small */
-            //RV = r_prime * V_inv
+            //RV = r_prime * V'
             for(J=0;J<M;J++){
                 for(I=0;I<M;I++){
                     val = 0;
                     for(k=0;k<M;k++){
-                        val += r_prime[k*M+I]*V_inv[J*M+k];
+                        val += r_prime[k*M+I]*V[k*M+J];
                     }
                     RV[J*M+I] = val;
                 }
@@ -1382,12 +1392,12 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                     W[J*M+I] = VRV[J*M+I]/(4*(lambda[I]/(hx*hx)+lambda[J]/(hy*hy)));
                 }
             }
-            //Wv =  W * V
+            //Wv =  W * V_inv'
             for(J=0;J<M;J++){
                 for(I=0;I<M;I++){
                     val = 0;
                     for(k=0;k<M;k++){
-                        val += W[k*M+I]*V[J*M+k];
+                        val += W[k*M+I]*V_inv[k*M+J];
                     }
                     Wv[J*M+I] = val;
                 }
@@ -1437,6 +1447,9 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             }
             else{
                 corners[0] = corners[2] = 1;
+                for(j=0;j<N;j++){
+                    z[lnodes->element_nodes[kk*vnodes+j*N]] += z_small[(j+1)*M+1];
+                }
             }
             //spread right boundary
             if(neighbors[12*kk+3]>=0){
@@ -1464,6 +1477,9 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             }
             else{
                 corners[1] = corners[3] = 1;
+                for(j=0;j<N;j++){
+                    z[lnodes->element_nodes[kk*vnodes+j*N+degree]] += z_small[(j+1)*M+N];
+                }
             }
             //spread bottom boundary
             if(neighbors[12*kk+6]>=0){
@@ -1491,6 +1507,9 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             }
             else{
                 corners[0] = corners[1] = 1;
+                for(i=0;i<N;i++){
+                    z[lnodes->element_nodes[kk*vnodes+i]] += z_small[M+i+1];
+                }
             }
             //spread top boundary
             if(neighbors[12*kk+9]>=0){
@@ -1518,6 +1537,9 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             }
             else{
                 corners[2] = corners[3] = 1;
+                for(i=0;i<N;i++){
+                    z[lnodes->element_nodes[kk*vnodes+degree*N+i]]+= z_small[N*M+i+1];
+                }
             }
             //spread corners
             if(!corners[0]){

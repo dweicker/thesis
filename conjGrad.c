@@ -236,24 +236,17 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     printf("INITIALIZATION COARSE\n");
     multiStruc *multi = malloc(sizeof(multiStruc));
     int *mapping = malloc(n1*sizeof(int));
-    printf("jj\n");
     mesh_mapping_build(p4est,lnodes1,lnodesP,mapping);
-    printf("gg\n");
     double *mass_matrix = malloc(nP*sizeof(double));
     double *correlation_matrix = malloc(4*vnodes*sizeof(double));
     double *mass_local = malloc(vnodes*Q*sizeof(double));
     double *r_restricted = malloc(n1*sizeof(double));
     double *z1 = malloc(n1*sizeof(double));
-    printf("lol\n");
     compute_restriction(p4est, lnodesP, gll_points, weights, corners_x, corners_y, hanging_P, mass_matrix, correlation_matrix, mass_local);
-    printf("ok\n");
     restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
-    printf("ha\n");
     multi_create_data(p4est, lnodes1, x_1, y_1, r_restricted, bc_1, multi);
     int maxlevel = multi->maxlevel;
-    printf("izi\n");
     multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
-    printf("kk\n");
     for(i=0;i<n1;i++){
         z1[i] = multi->u[maxlevel][i];
     }
@@ -311,11 +304,11 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
             //fine precond
         fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
             //precond the boundaries
-        //for(i=0;i<nP;i++){
-        //    if(bc_P[i]){
-        //        z[i] = r[i];
-        //    }
-        //}
+        for(i=0;i<nP;i++){
+            if(bc_P[i]){
+                z[i] = r[i];
+            }
+        }
         //update p
         zrNew = scalar_prod(z,r,nP);
         beta = zrNew/zr;
