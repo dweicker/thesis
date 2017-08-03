@@ -20,7 +20,7 @@
 #include "multigrid.h"
 #include "finePrecond.h"
 
-#define TOL_GLOB 0.0001
+#define TOL_GLOB 1e-3
 #define TOL_MULTI 0.000000001
 
 
@@ -306,7 +306,7 @@ void test_multiply(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll, double *
  */
 void test_fine(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll, double *weights, double *x, double *y, double *U){
     
-    int iterMax = 1;
+    int iterMax = 1000;
     double alpha = 0.1;
     
     int nP = lnodes->num_local_nodes;
@@ -325,6 +325,10 @@ void test_fine(p4est_t *p4est, p4est_lnodes_t *lnodes, double *gll, double *weig
     double *u_exact = malloc(nP*sizeof(double));
     int *bc = malloc(nP*sizeof(double));
     p4est_field_eval(p4est, lnodes, gll, weights, x, y, rhs, b, u_exact, bc);
+    
+    //for(i=0;i<nP;i++){
+    //    printf("%d : %f\n",i,b[i]);
+    //}
     
     int *hanging = calloc(4*Q,sizeof(int));
     double *Wee = malloc(Q*vnodes*sizeof(double));
@@ -409,15 +413,30 @@ int main(int argc, const char * argv[]) {
     int i,j;
     
     
-    /** BASIC CONSTANTS **/
+    /** BASIC CONSTANTS AND GLL POINTS **/
     double gll_1[2] = {-1.0,1.0};
     double weights_1[2] = {1.0,1.0};
-    double gll_P[3] = {-1.0,0,1.0};
+    
+    /* DEGREE 2 */
+    /*double gll_P[3] = {-1.0,0,1.0};
     double weights_P[3] = {1.0/3.0,4.0/3.0,1.0/3.0};
-    int degree = 2;
-    //double gll_P[9] = {-1.0, -0.8997579954114601573123, -0.6771862795107377534459, -0.3631174638261781587108, 0.0, 0.3631174638261781587108, 0.6771862795107377534459, 0.8997579954114601573123, 1.0};
-    //double weights_P[9] = {0.02777777777777777777778, 0.165495361560805525046, 0.2745387125001617352807, 0.346428510973046345115, 0.3715192743764172335601, 0.346428510973046345115, 0.2745387125001617352807, 0.165495361560805525046, 0.02777777777777777777778};
-    //int degree = 8;
+    int degree = 2;*/
+    
+    /* DEGREE 4 */
+    /*double gll_P[5] = {-1.0, -0.6546536707079771437983, 0.0, 0.6546536707079771437983, 1.0};
+    double weights_P[5] = {0.1, 0.5444444444444444444444, 0.7111111111111111111111, 0.5444444444444444444444 ,0.1};
+    int degree = 4;*/
+    
+    /* DEGREE 6 */
+    double gll_P[7] = {-1.0, -0.830223896278566929872, -0.4688487934707142138038, 0.0, 0.4688487934707142138038, 0.830223896278566929872, 1.0};
+    double weights_P[7] = {0.04761904761904761904762, 0.276826047361565948011, 0.4317453812098626234179, 0.4876190476190476190476, 0.4317453812098626234179, 0.276826047361565948011, 0.04761904761904761904762};
+    int degree = 6;
+    
+    
+    /* DEGREE 8 */
+    /*double gll_P[9] = {-1.0, -0.8997579954114601573123, -0.6771862795107377534459, -0.3631174638261781587108, 0.0, 0.3631174638261781587108, 0.6771862795107377534459, 0.8997579954114601573123, 1.0};
+    double weights_P[9] = {0.02777777777777777777778, 0.165495361560805525046, 0.2745387125001617352807, 0.346428510973046345115, 0.3715192743764172335601, 0.346428510973046345115, 0.2745387125001617352807, 0.165495361560805525046, 0.02777777777777777777778};
+    int degree = 8;*/
     
     /** FOREST **/
     //conn = p4est_connectivity_new_unitsquare();
@@ -431,15 +450,16 @@ int main(int argc, const char * argv[]) {
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
 //    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//    p4est_refine(p4est,0,refine_true,NULL);
-//   p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
+    p4est_refine(p4est,0,refine_true,NULL);
     
-    p4est_refine(p4est,0,refine_first_tree,NULL);
+//    p4est_refine(p4est,0,refine_first_tree,NULL);
+//    p4est_refine(p4est,0,refine_first_tree,NULL);
     
 //    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
 //    p4est_refine(p4est,0,refine_lower_left_trees,NULL);
@@ -495,10 +515,16 @@ int main(int argc, const char * argv[]) {
     
     //test_multigrid(p4est,lnodes1,gll_P,weights_P,1,x,y,U);
     
-    test_fine(p4est,lnodesP,gll_P,weights_P,x,y,U);
+    //test_fine(p4est,lnodesP,gll_P,weights_P,x,y,U);
     
     
-    //precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
+    precond_conj_grad(p4est, lnodesP, lnodes1, gll_P, weights_P, TOL_GLOB, TOL_MULTI, U, x, y, u_exact);
+    
+    double err = 0.0;
+    for(i=0;i<nP;i++){
+        err = fmax(err,fabs(U[i]-uexact_func(x[i],y[i])));
+    }
+    printf("The error max norm is : %.10e\n",err);
     
     
     //write the results

@@ -12,7 +12,11 @@
 /* Exact solution of the problem */
 double uexact_func(double x,double y){
     /* Cosine */
-    return cos(PI*x/2)*cos(PI*y/2);
+    //return cos(PI*x/2)*cos(PI*y/2);
+    
+    /* High frequency sine */
+    int n = 2;
+    return sin(n*PI*x)*sin(n*PI*y);
     
     /* Hyperbolic tangent */
     //int n = 3;
@@ -23,7 +27,11 @@ double uexact_func(double x,double y){
 /* Exact right-hand side of the problem */
 double rhs_func(double x,double y){
     /* Cosine */
-    return -PI*PI*cos(PI*x/2)*cos(PI*y/2)/2;
+    //return -PI*PI*cos(PI*x/2)*cos(PI*y/2)/2;
+    
+    /* High frequency sine */
+    int n = 2;
+    return -2*n*n*PI*PI*sin(n*PI*x)*sin(n*PI*y);
     
     /* Hyperbolic tangent */
     //int n = 3;

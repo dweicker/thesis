@@ -7,6 +7,7 @@
 //
 
 #include "conjGrad.h"
+#define MAXITER 2000
 
 /** Compute the scalar product between two vectors
  *
@@ -181,6 +182,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     double *b_P = calloc(nP,sizeof(double));
     int *bc_P = malloc(nP*sizeof(double));
     p4est_field_eval(p4est, lnodesP, gll_points, weights, x, y, rhs_P, b_P, u_exact, bc_P);
+    double normB = sqrt(scalar_prod(b_P,b_P,nP));
     
     printf("HIGH ORDER CONSTANTS\n");
     
@@ -243,14 +245,14 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     double *r_restricted = malloc(n1*sizeof(double));
     double *z1 = malloc(n1*sizeof(double));
     compute_restriction(p4est, lnodesP, gll_points, weights, corners_x, corners_y, hanging_P, mass_matrix, correlation_matrix, mass_local);
-    restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+    //restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
     multi_create_data(p4est, lnodes1, x_1, y_1, r_restricted, bc_1, multi);
     int maxlevel = multi->maxlevel;
-    multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
+    //multi_solve_problem(multi, mu, x_1, y_1, bc_1, tol_multi);
     for(i=0;i<n1;i++){
         z1[i] = multi->u[maxlevel][i];
     }
-    prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
+    //prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
     //initialization of the fine preconditioner
     printf("INITIALIZATION FINE\n");
     int *neighbors = malloc(12*Q*sizeof(int));
@@ -274,8 +276,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
     
     zr = scalar_prod(z,r,nP);
     int iter;
-    for(iter = 0; err>tol_glob && iter<20; iter++){
-        printf("THIS IS ITERATION %d and err=%f\n",iter,err);
+    for(iter = 0; err>tol_glob && iter<MAXITER; iter++){
         //compute f
         for(i=0;i<nP;i++){
             Ap[i] = 0.0;
@@ -285,13 +286,13 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         pAp = scalar_prod(p,Ap,nP);
         alpha = zr/pAp;
         
-        printf("This is alpha = %f\n",alpha);
+        //printf("This is alpha = %f\n",alpha);
         
         linear_trans(U,p,alpha,nP,U);
         linear_trans(r,Ap,-alpha,nP,r);
         //compute the new z
             //coarse precond
-        restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
+        /*restriction_degree(p4est, lnodes1, lnodesP, mapping, gll_points, hanging_P, bc_1, mass_matrix, correlation_matrix, mass_local, edge_proj, r_restricted, r);
         for(i=0;i<multi->nNodes[maxlevel];i++){
             multi->u[maxlevel][i] = 0.0;
             multi->f[maxlevel][i] = r_restricted[i];
@@ -300,7 +301,7 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         for(i=0;i<n1;i++){
             z1[i] = multi->u[maxlevel][i];
         }
-        prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);
+        prolongation_degree(p4est, lnodes1, lnodesP, gll_points, hanging_P, mass_matrix, correlation_matrix, mass_local, edge_proj, z1, z);*/
             //fine precond
         fine_update(p4est, lnodesP, neighbors, V, V_inv, lambda, m, r, z, hanging_P, one_to_two, two_to_one, edge_proj, corners_x, corners_y);
             //precond the boundaries
@@ -314,13 +315,15 @@ void precond_conj_grad(p4est_t *p4est, p4est_lnodes_t *lnodesP, p4est_lnodes_t *
         beta = zrNew/zr;
         linear_trans(z,p,beta,nP,p);
         
-        //TODO : critere d'arret
+        //critere d'arret
         zr = zrNew;
-        err = scalar_prod(r,r,nP);
+        err = sqrt(scalar_prod(r,r,nP))/normB;
+        
+        printf("THIS IS ITERATION %d and err=%.10e\n",iter,err);
     }
     
-    if(iter==nP){
-        printf("The preconditioned conjugate gradient has NOT converged after %d iterations.\n",nP);
+    if(iter==MAXITER){
+        printf("The preconditioned conjugate gradient has NOT converged after %d iterations.\n",MAXITER);
     }
     else{
         printf("The preconditioned conjugate gradient has converged after %d iterations.\nThe error is %f.\n",iter,err);

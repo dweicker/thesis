@@ -551,6 +551,7 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
                     for(k=0;k<N;k++){
                         val += edge_proj[j*N+k]*r[lnodes->element_nodes[kk*vnodes+k*N+degree]];
                     }
+                    //printf("VAL = %f\n",val);
                     r_prime[(j+1)*M+N] = 4*val/(hx*hy*m[N]*m[j+1]);
                 }
             }
@@ -1356,13 +1357,13 @@ void fine_update(p4est_t *p4est, p4est_lnodes_t *lnodes, int *neighbors, double 
             
             
             //PRINTF
-            printf("This is quadrant %d\n",kk);
+            /*printf("This is quadrant %d\n",kk);
             for(J=0;J<M;J++){
                 for(I=0;I<M;I++){
                     printf("%f ",r_prime[J*M+I]);
                 }
                 printf("\n");
-            }
+            }*/
             
             
             /* Step 3 : apply V, V_inv and lambda to get z_small */
